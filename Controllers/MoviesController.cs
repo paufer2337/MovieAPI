@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using MovieApi.DTOs;
 using MovieApi.Services;
 
+
+
+
 namespace MovieApi.Controllers;
 
 [ApiController]

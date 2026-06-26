@@ -4,6 +4,9 @@ using MovieApi.Extensions;
 using MovieApi.Repositories;
 using MovieApi.Services;
 
+
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();

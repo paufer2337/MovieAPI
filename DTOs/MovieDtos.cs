@@ -1,5 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 
+
+
+
+
 namespace MovieApi.DTOs;
 
 public record MovieDto(int Id, string Title, int Year, string Genre, int Duration);
