@@ -12,14 +12,23 @@ public class MovieService : IMovieService
     private readonly IMovieRepository _repo;
     public MovieService(IMovieRepository repo) => _repo = repo;
 
-    public async Task<List<MovieDto>> GetAllAsync(string? genre, int? year) =>
-        (await _repo.GetAllAsync(genre, year)).Select(ToDto).ToList();
+
+    public async Task<List<MovieDto>> GetAllAsync(string? genre, int? year, 
+    string? search, string? sortBy, bool descending, int page, int pageSize)
+    {
+        var movies = await _repo.GetAllAsync(genre, year, 
+        search, sortBy, descending, page, pageSize);
+
+        return movies.Select(ToDto).ToList();
+    }
+
 
     public async Task<MovieDto?> GetByIdAsync(int id)
     {
         var movie = await _repo.GetByIdAsync(id);
         return movie is null ? null : ToDto(movie);
     }
+
 
     public async Task<MovieDetailDto?> GetDetailsAsync(int id)
     {

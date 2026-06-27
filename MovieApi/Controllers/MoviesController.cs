@@ -15,8 +15,18 @@ public class MoviesController : ControllerBase
     public MoviesController(IMovieService service) => _service = service;
 
     [HttpGet]
-    public async Task<ActionResult<List<MovieDto>>> GetMovies([FromQuery] string? genre, [FromQuery] int? year)
-        => Ok(await _service.GetAllAsync(genre, year));
+    public async Task<ActionResult<List<MovieDto>>> GetMovies(
+        [FromQuery] string? genre, 
+        [FromQuery] int? year, 
+        [FromQuery] string? search,
+        [FromQuery] string? sortBy, 
+        [FromQuery] bool descending = false, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
+    {
+        var movies = await _service.GetAllAsync(genre, year, search, sortBy, descending, page, pageSize);
+        return Ok(movies);
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<MovieDto>> GetMovie(int id)

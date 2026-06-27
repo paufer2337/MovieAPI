@@ -37,7 +37,7 @@ public class MoviesControllerTests
 
 
     [Fact]
-    public async Task GetMovie_ReturnsNotFound_WhenDoesNotExist()
+    public async Task GetMovie_ReturnsNotFound_WhenNotExist()
     {
         _serviceMock.Setup(s => s.GetByIdAsync(999)).ReturnsAsync((MovieDto?)null);
 
@@ -97,5 +97,35 @@ public class MoviesControllerTests
         var result = await _controller.DeleteMovie(1);
 
         Assert.IsType<NoContentResult>(result);
+    }
+
+
+    [Fact]
+    public async Task GetMovies_ReturnsOk_WithQueryParameters()
+    {
+        var movies = new List<MovieDto>
+        {
+            new MovieDto(1, "Gladiator", 2000, "Action/Drama", 155),
+            new MovieDto(2, "Troy", 2004, "History/Action", 163)
+        };
+
+        _serviceMock
+            .Setup(s => s.GetAllAsync("Action", null, "g", "year", true, 1, 10))
+            .ReturnsAsync(movies);
+
+        var result = await _controller.GetMovies(
+            genre: "Action",
+            year: null,
+            search: "g",
+            sortBy: "year",
+            descending: true,
+            page: 1,
+            pageSize: 10);
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var returnedMovies = Assert.IsType<List<MovieDto>>(okResult.Value);
+
+        Assert.Equal(2, returnedMovies.Count);
+        
     }
 }

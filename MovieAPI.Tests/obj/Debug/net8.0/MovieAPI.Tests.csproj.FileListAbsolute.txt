@@ -236,3 +236,5 @@ C:\source\repos\MovieAPI\MovieAPI.Tests\obj\Debug\net8.0\refint\MovieAPI.Tests.d
 C:\source\repos\MovieAPI\MovieAPI.Tests\obj\Debug\net8.0\MovieAPI.Tests.pdb
 C:\source\repos\MovieAPI\MovieAPI.Tests\obj\Debug\net8.0\MovieAPI.Tests.genruntimeconfig.cache
 C:\source\repos\MovieAPI\MovieAPI.Tests\obj\Debug\net8.0\ref\MovieAPI.Tests.dll
+C:\source\repos\MovieAPI\MovieAPI.Tests\bin\Debug\net8.0\Castle.Core.dll
+C:\source\repos\MovieAPI\MovieAPI.Tests\bin\Debug\net8.0\Moq.dll
