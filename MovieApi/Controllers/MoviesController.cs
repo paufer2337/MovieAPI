@@ -14,6 +14,10 @@ public class MoviesController : ControllerBase
     private readonly IMovieService _service;
     public MoviesController(IMovieService service) => _service = service;
 
+
+    /// <summary>
+    /// Gets movies with optional filtering, searching, sorting and pagination.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<MovieDto>>> GetMovies(
         [FromQuery] string? genre, 

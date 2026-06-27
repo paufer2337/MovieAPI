@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>MovieApi</name>
+    </assembly>
+    <members>
+        <member name="M:MovieApi.Controllers.MoviesController.GetMovies(System.String,System.Nullable{System.Int32},System.String,System.String,System.Boolean,System.Int32,System.Int32)">
+            <summary>
+            Gets movies with optional filtering, searching, sorting and pagination.
+            </summary>
+        </member>
+        <member name="T:MovieApi.Migrations.InitialCreate">
+            <inheritdoc />
+        </member>
+        <member name="M:MovieApi.Migrations.InitialCreate.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:MovieApi.Migrations.InitialCreate.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:MovieApi.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+    </members>
+</doc>
