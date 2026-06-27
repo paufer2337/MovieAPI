@@ -1,0 +1,9 @@
+<Solution>
+    <ItemGroup>
+        <Compile Remove="MovieAPI.Tests/**/*.cs" />
+            <EmbeddedResource Remove="MovieAPI.Tests/**" />
+        <None Remove="MovieAPI.Tests/**" />
+    </ItemGroup>
+  <Project Path="MovieAPI.Tests/MovieAPI.Tests.csproj" />
+  <Project Path="MovieApi/MovieApi.csproj" />
+</Solution>
