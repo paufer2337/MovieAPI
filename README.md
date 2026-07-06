@@ -127,18 +127,6 @@ https://localhost:<port>/swagger
 dotnet test
 ```
 
-## Design Decisions
-
-Jag valde att bygga projektet med en tydlig lagerindelning där controller, service och repository har separata ansvarsområden. Det gör projektet lättare att läsa och gör det också enklare att testa logiken utan att controller och databaslogik blandas ihop.
-
-Jag valde att använda DTOs för att API:t inte ska exponera databasmodellerna direkt. Det ger bättre kontroll över vilken data som skickas till och från klienten.
-
-Databasen innehåller flera relationstyper för att visa förståelse för Entity Framework Core och relationsmodellering: one-to-one, one-to-many och many-to-many.
-
-SeedData används för att API:t ska kunna testas direkt efter start utan att användaren först behöver skapa all data manuellt.
-
-Projektet innehåller också enkel filtrering, sökning, sortering och paginering för att API:t ska kännas mer realistiskt än endast grundläggande CRUD.
-
 ## Future Improvements
 
 * Lägg till separata endpoints för actors och reviews
