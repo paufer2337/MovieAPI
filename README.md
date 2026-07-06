@@ -126,12 +126,3 @@ https://localhost:<port>/swagger
 ```bash
 dotnet test
 ```
-
-## Future Improvements
-
-* Lägg till separata endpoints för actors och reviews
-* Lägg till autentisering och roller
-* Lägg till AutoMapper för mer avancerad DTO-mappning
-* Lägg till bättre felmeddelanden vid validering
-* Lägg till integrationstester med testdatabas
-* Lägg till response models för paginering med total count
