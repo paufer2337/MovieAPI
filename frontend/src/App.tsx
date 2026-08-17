@@ -30,7 +30,12 @@ function App() {
         if (!selectedGenre) {
           const availableGenres = [
             ...new Set(
-              data.map((movie) => movie.genre),
+              data.flatMap((movie) =>
+                movie.genre
+                  .split("/")
+                  .map((genre) => genre.trim())
+                  .filter(Boolean),
+              ),
             ),
           ].sort((first, second) =>
             first.localeCompare(second),
