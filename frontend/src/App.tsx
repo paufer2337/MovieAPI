@@ -1,122 +1,264 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import { getMoviePoster } from "./data/moviePosters";
+import { getMovies } from "./services/movieApi";
+import type { Movie } from "./types/movie";
+import "./App.css";
+
+type LoadState = "loading" | "success" | "error";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [genres, setGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState("");
+  const [loadState, setLoadState] =
+    useState<LoadState>("loading");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    setLoadState("loading");
+    setErrorMessage("");
+
+    getMovies({
+      signal: controller.signal,
+      genre: selectedGenre || undefined,
+    })
+      .then((data) => {
+        setMovies(data);
+
+        if (!selectedGenre) {
+          const availableGenres = [
+            ...new Set(
+              data.flatMap((movie) =>
+                movie.genre
+                  .split("/")
+                  .map((genre) => genre.trim())
+                  .filter(Boolean),
+              ),
+            ),
+          ].sort((first, second) =>
+            first.localeCompare(second),
+          );
+
+          setGenres(availableGenres);
+        }
+
+        setLoadState("success");
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred.",
+        );
+
+        setLoadState("error");
+      });
+
+    return () => controller.abort();
+  }, [selectedGenre]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <div className="app-shell">
+      <header className="site-header">
+        <a
+          className="brand"
+          href="/"
+          aria-label="CinematheQue home"
         >
-          Count is {count}
-        </button>
-      </section>
+          <img
+            className="brand-lockup"
+            src="/branding/cinematheque-header-lockup.webp"
+            alt=""
+            width={1200}
+            height={244}
+          />
+        </a>
+      </header>
 
-      <div className="ticks"></div>
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <h1>
+              The infinite
+              <br />
+              archive
+            </h1>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            <p className="intro">
+              Stories worth keeping.
+            </p>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            <a className="hero-cta" href="#catalog">
+              <span>Explore the collection</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+
+        <section
+          id="catalog"
+          className="catalog"
+          aria-labelledby="catalog-title"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">
+                Archive index
+              </p>
+
+              <h2 id="catalog-title">
+                All films
+              </h2>
+            </div>
+
+            <div className="catalog-controls">
+              <label
+                className="genre-filter"
+                htmlFor="genre-filter"
+              >
+                <span>Filter by genre</span>
+
+                <select
+                  id="genre-filter"
+                  value={selectedGenre}
+                  onChange={(event) =>
+                    setSelectedGenre(
+                      event.target.value,
+                    )
+                  }
+                >
+                  <option value="">
+                    All genres
+                  </option>
+
+                  {genres.map((genre) => (
+                    <option
+                      key={genre}
+                      value={genre}
+                    >
+                      {genre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {loadState === "loading" && (
+            <div
+              className="movie-grid"
+              aria-label="Loading movies"
+            >
+              {Array.from(
+                { length: 6 },
+                (_, index) => (
+                  <div
+                    className="movie-card skeleton"
+                    key={index}
+                  />
+                ),
+              )}
+            </div>
+          )}
+
+          {loadState === "error" && (
+            <div
+              className="message error"
+              role="alert"
+            >
+              <strong>
+                The archive could not be opened.
+              </strong>
+
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {loadState === "success" &&
+            movies.length === 0 && (
+              <div className="message">
+                <strong>
+                  {selectedGenre
+                    ? "No films found."
+                    : "The archive is empty."}
+                </strong>
+
+                <span>
+                  {selectedGenre
+                    ? "Try selecting another genre."
+                    : "Add the first movie to begin the collection."}
+                </span>
+              </div>
+            )}
+
+          {loadState === "success" &&
+            movies.length > 0 && (
+              <div className="movie-grid">
+                {movies.map((movie, index) => {
+                  const posterUrl =
+                    getMoviePoster(movie.title);
+
+                  return (
+                    <article
+                      className="movie-card"
+                      key={movie.id}
+                      tabIndex={0}
+                    >
+                      <div
+                        className={`poster poster-${movie.id % 4}`}
+                      >
+                        {posterUrl ? (
+                          <img
+                            className="poster-image"
+                            src={posterUrl}
+                            alt=""
+                            width={800}
+                            height={1200}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="poster-letter">
+                            {movie.title.charAt(0)}
+                          </span>
+                        )}
+
+                        <span className="poster-number">
+                          {String(
+                            index + 1,
+                          ).padStart(2, "0")}
+                        </span>
+
+                        <span className="poster-year">
+                          {movie.year}
+                        </span>
+                      </div>
+
+                      <div className="movie-content">
+                        <p>{movie.genre}</p>
+                        <h3>{movie.title}</h3>
+
+                        <span>
+                          {movie.duration} minutes
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+        </section>
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
