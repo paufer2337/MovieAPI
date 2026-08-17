@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
 import type { Movie } from "./types/movie";
@@ -66,15 +66,6 @@ function App() {
     return () => controller.abort();
   }, [selectedGenre]);
 
-  const totalRuntime = useMemo(
-    () =>
-      movies.reduce(
-        (sum, movie) => sum + movie.duration,
-        0,
-      ),
-    [movies],
-  );
-
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -83,62 +74,38 @@ function App() {
           href="/"
           aria-label="CinematheQue home"
         >
-          <span
-            className="brand-mark"
-            aria-hidden="true"
-          >
-            <span className="brand-monogram">
-              CQ
-            </span>
-
-            <span className="brand-edition">
-              11
-            </span>
-          </span>
-
-          <span className="brand-name">
-            CinematheQue
-          </span>
+          <img
+            className="brand-lockup"
+            src="/branding/cinematheque-header-lockup.webp"
+            alt=""
+            width={1200}
+            height={244}
+          />
         </a>
-
-        <span className="header-label">
-          Movie archive · Exercise 11
-        </span>
       </header>
 
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <p className="eyebrow">
-              The permanent collection
-            </p>
-
             <h1>
-              Stories worth
+              The infinite
               <br />
-              keeping.
+              archive
             </h1>
 
             <p className="intro">
-              A living film archive connected directly
-              to our ASP.NET Core API.
+              Stories worth keeping.
             </p>
-          </div>
 
-          <div className="hero-stats">
-            <div>
-              <strong>{movies.length}</strong>
-              <span>Films</span>
-            </div>
-
-            <div>
-              <strong>{totalRuntime}</strong>
-              <span>Minutes</span>
-            </div>
+            <a className="hero-cta" href="#catalog">
+              <span>Explore the collection</span>
+              <span aria-hidden="true">→</span>
+            </a>
           </div>
         </section>
 
         <section
+          id="catalog"
           className="catalog"
           aria-labelledby="catalog-title"
         >
@@ -244,6 +211,7 @@ function App() {
                     <article
                       className="movie-card"
                       key={movie.id}
+                      tabIndex={0}
                     >
                       <div
                         className={`poster poster-${movie.id % 4}`}

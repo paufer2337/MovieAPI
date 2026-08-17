@@ -1,4 +1,13 @@
 :root {
+  --obsidian: #0b0a0c;
+  --archive-black: #151416;
+  --deep-brown: #211a18;
+  --warm-paper: #f1ece5;
+  --champagne: #d8b98b;
+  --copper: #9b5e48;
+  --steel: #9ea7ae;
+  --soft-white: #faf8f4;
+  --muted-text: #817a73;
   --ink: #181815;
   --paper: #f3f0e8;
   --paper-light: #fffdf7;
@@ -13,8 +22,8 @@
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 
-  color: var(--ink);
-  background: var(--paper);
+  color: var(--warm-paper);
+  background: var(--obsidian);
   font-family: var(--sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -33,10 +42,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background:
-    linear-gradient(rgb(24 24 21 / 2%) 1px, transparent 1px),
-    var(--paper);
-  background-size: 100% 24px;
+  background: var(--obsidian);
 }
 
 body,
@@ -57,13 +63,17 @@ a {
 
 #root {
   width: 100%;
+  max-width: none;
   min-height: 100vh;
+  margin: 0;
+  border: 0;
+  text-align: left;
 }
 
 .app-shell {
   min-height: 100vh;
   overflow: hidden;
-  background: var(--paper);
+  background: var(--obsidian);
 }
 
 /* Header */
@@ -72,43 +82,47 @@ a {
   position: relative;
   z-index: 10;
   display: flex;
-  width: min(100% - 3rem, 1400px);
+  width: 100%;
+  min-height: 3.75rem;
   align-items: center;
-  justify-content: space-between;
-  gap: 2rem;
-  margin: 0 auto;
-  border-bottom: 1px solid var(--line);
-  padding: 1.25rem 0;
+  margin: 0;
+  border-bottom: 1px solid rgb(216 185 139 / 34%);
+  background: #050505;
+  padding: 0.25rem max(1.5rem, calc((100% - 1400px) / 2 + 1.5rem));
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.85rem;
-  color: var(--ink);
+  color: var(--soft-white);
+}
+
+.brand-lockup {
+  display: block;
+  width: clamp(13.75rem, 18vw, 17rem);
+  height: auto;
+  aspect-ratio: 1200 / 244;
+  object-fit: contain;
 }
 
 .brand-mark {
   position: relative;
   display: grid;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 2.65rem;
+  height: 2.3rem;
   flex: 0 0 auto;
   place-items: center;
-  border: 1px solid var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--champagne);
   transition:
-    background-color 180ms ease,
-    border-color 180ms ease,
+    color 180ms ease,
     transform 180ms ease;
 }
 
 .brand:hover .brand-mark {
-  border-color: var(--red);
-  background: var(--red);
-  transform: rotate(-2deg);
+  color: var(--soft-white);
+  transform: translateY(-1px);
 }
 
 .brand-monogram {
@@ -122,9 +136,9 @@ a {
 
 .brand-edition {
   position: absolute;
-  right: 0.28rem;
-  bottom: 0.18rem;
-  color: var(--brass);
+  right: 0.05rem;
+  bottom: 0.15rem;
+  color: var(--copper);
   font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -132,10 +146,12 @@ a {
 }
 
 .brand-name {
+  border-left: 1px solid rgb(216 185 139 / 46%);
+  padding-left: 0.8rem;
   font-family: var(--serif);
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .header-label {
@@ -157,52 +173,35 @@ main {
 .hero {
   position: relative;
   display: grid;
-  width: min(100% - 3rem, 1400px);
-  min-height: 620px;
-  grid-template-columns: minmax(0, 1.6fr) minmax(250px, 0.4fr);
+  width: 100%;
+  min-height: clamp(30rem, 64svh, 42rem);
+  grid-template-columns: minmax(0, 1fr);
   align-items: end;
-  gap: clamp(3rem, 8vw, 8rem);
-  margin: 2rem auto 0;
-  padding: clamp(3rem, 8vw, 7rem);
-  background: var(--ink);
-  color: var(--paper);
+  margin: 0;
+  padding:
+    clamp(5rem, 10vw, 8rem)
+    max(1.5rem, calc((100% - 1400px) / 2 + 1.5rem))
+    clamp(3rem, 7vw, 5rem);
+  background:
+    linear-gradient(
+      90deg,
+      rgb(11 10 12 / 54%) 0%,
+      rgb(11 10 12 / 24%) 48%,
+      rgb(11 10 12 / 6%) 100%
+    ),
+    linear-gradient(0deg, rgb(11 10 12 / 42%) 0%, transparent 52%),
+    url("/images/infinite-archive-hero.webp") center / cover no-repeat;
+  color: var(--warm-paper);
   isolation: isolate;
   overflow: hidden;
-}
-
-.hero::before {
-  position: absolute;
-  z-index: -2;
-  top: -15%;
-  right: -5%;
-  width: min(48vw, 680px);
-  aspect-ratio: 1;
-  border: 1px solid rgb(200 169 107 / 50%);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 5rem rgb(200 169 107 / 5%),
-    0 0 0 10rem rgb(200 169 107 / 3%);
-  content: "";
-}
-
-.hero::after {
-  position: absolute;
-  z-index: -1;
-  right: 12%;
-  bottom: -22%;
-  width: min(36vw, 500px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--red);
-  content: "";
-  opacity: 0.85;
-  filter: saturate(0.85);
 }
 
 .hero-copy {
   position: relative;
   z-index: 1;
-  max-width: 900px;
+  max-width: 780px;
+  border-left: 1px solid rgb(216 185 139 / 72%);
+  padding-left: clamp(1.25rem, 2.5vw, 2rem);
 }
 
 .eyebrow {
@@ -219,22 +218,50 @@ main {
 }
 
 .hero h1 {
-  max-width: 950px;
+  max-width: 780px;
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(4.25rem, 9vw, 9rem);
+  font-size: clamp(4rem, 8vw, 7.5rem);
   font-weight: 400;
-  letter-spacing: -0.075em;
-  line-height: 0.78;
+  letter-spacing: -0.055em;
+  line-height: 0.82;
+  text-transform: uppercase;
 }
 
 .intro {
   max-width: 590px;
-  margin: 2.5rem 0 0;
-  color: rgb(243 240 232 / 72%);
-  font-family: var(--serif);
-  font-size: clamp(1.05rem, 2vw, 1.35rem);
-  line-height: 1.65;
+  margin: 1.75rem 0 0;
+  color: rgb(241 236 229 / 86%);
+  font-size: clamp(1.05rem, 1.8vw, 1.3rem);
+  line-height: 1.5;
+}
+
+.hero-cta {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2.5rem;
+  margin-top: 1.75rem;
+  background: var(--champagne);
+  color: var(--obsidian);
+  padding: 0.85rem 1.15rem 0.85rem 1.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.hero-cta:hover {
+  background: var(--copper);
+  color: var(--soft-white);
+}
+
+.hero-cta span:last-child {
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .hero-stats {
@@ -242,8 +269,9 @@ main {
   z-index: 1;
   display: grid;
   align-self: end;
-  border-top: 1px solid rgb(243 240 232 / 35%);
-  border-bottom: 1px solid rgb(243 240 232 / 35%);
+  border-top: 1px solid rgb(216 185 139 / 48%);
+  border-bottom: 1px solid rgb(216 185 139 / 48%);
+  background: rgb(11 10 12 / 52%);
 }
 
 .hero-stats > div {
@@ -279,6 +307,7 @@ main {
   width: min(100% - 3rem, 1400px);
   margin: 0 auto;
   padding: clamp(5rem, 10vw, 9rem) 0;
+  color: var(--warm-paper);
 }
 
 .section-heading {
@@ -287,17 +316,18 @@ main {
   justify-content: space-between;
   gap: 2rem;
   margin-bottom: 3rem;
-  border-bottom: 1px solid var(--ink);
+  border-bottom: 1px solid rgb(216 185 139 / 38%);
   padding-bottom: 1.5rem;
 }
 
 .section-heading .eyebrow {
   margin-bottom: 0.75rem;
+  color: var(--champagne);
 }
 
 .section-heading h2 {
   margin: 0;
-  color: var(--ink);
+  color: var(--warm-paper);
   font-family: var(--serif);
   font-size: clamp(2.5rem, 5vw, 5rem);
   font-weight: 400;
@@ -324,11 +354,22 @@ main {
 
 .movie-card {
   min-width: 0;
+  color: var(--warm-paper);
+  outline: none;
   transition: transform 220ms ease;
 }
 
 .movie-card:hover {
-  transform: translateY(-7px);
+  transform: translateY(-4px);
+}
+
+.movie-card:focus-visible {
+  transform: translateY(-4px);
+}
+
+.movie-card:focus-visible .poster {
+  border-color: var(--champagne);
+  box-shadow: 0 0 0 3px rgb(216 185 139 / 24%);
 }
 
 .poster {
@@ -337,6 +378,7 @@ main {
   aspect-ratio: 2 / 3;
   flex-direction: column;
   justify-content: space-between;
+  border: 1px solid rgb(216 185 139 / 28%);
   padding: 1rem;
   color: var(--paper);
   isolation: isolate;
@@ -457,7 +499,7 @@ main {
 
 .movie-content p {
   margin: 0 0 0.55rem;
-  color: var(--red);
+  color: var(--champagne);
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -472,12 +514,13 @@ main {
   font-weight: 400;
   letter-spacing: -0.035em;
   line-height: 1.08;
+  color: var(--soft-white);
 }
 
 .movie-content > span {
   display: block;
   margin-top: 0.65rem;
-  color: var(--muted);
+  color: var(--steel);
   font-size: 0.75rem;
 }
 
@@ -489,10 +532,10 @@ main {
     linear-gradient(
       105deg,
       transparent 35%,
-      rgb(255 255 255 / 48%) 48%,
+      rgb(216 185 139 / 18%) 48%,
       transparent 62%
     ),
-    #ddd8cd;
+    var(--archive-black);
   background-size: 220% 100%;
   animation: shimmer 1.5s linear infinite;
 }
@@ -514,8 +557,8 @@ main {
   min-height: 220px;
   place-content: center;
   gap: 0.75rem;
-  border: 1px solid var(--line);
-  background: var(--paper-light);
+  border: 1px solid rgb(216 185 139 / 30%);
+  background: var(--archive-black);
   padding: 3rem;
   text-align: center;
 }
@@ -527,17 +570,17 @@ main {
 }
 
 .message span {
-  color: var(--muted);
+  color: var(--steel);
   line-height: 1.6;
 }
 
 .message.error {
-  border-color: rgb(211 74 49 / 45%);
-  background: rgb(211 74 49 / 7%);
+  border-color: rgb(155 94 72 / 60%);
+  background: rgb(155 94 72 / 10%);
 }
 
 .message.error strong {
-  color: var(--red);
+  color: var(--champagne);
 }
 
 /* Keyboard accessibility */
@@ -552,20 +595,12 @@ input:focus-visible {
 /* Responsive design */
 
 @media (max-width: 1150px) {
-  .hero {
-    min-height: 560px;
-    grid-template-columns: minmax(0, 1fr) 220px;
-    padding: clamp(3rem, 6vw, 5rem);
-  }
-
   .movie-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .site-header,
-  .hero,
   .catalog {
     width: min(100% - 2rem, 1400px);
   }
@@ -575,30 +610,31 @@ input:focus-visible {
   }
 
   .hero {
-    min-height: auto;
+    min-height: clamp(30rem, 72svh, 38rem);
     grid-template-columns: 1fr;
-    gap: 4rem;
-    padding: 4rem 1.5rem 2.5rem;
-  }
-
-  .hero::before {
-    top: -5%;
-    right: -45%;
-    width: 120vw;
-  }
-
-  .hero::after {
-    right: -20%;
-    bottom: -12%;
-    width: 75vw;
+    align-content: end;
+    padding: clamp(5rem, 18vh, 8rem) 1.5rem 2.5rem;
+    background-position: 60% center;
   }
 
   .hero h1 {
-    font-size: clamp(4rem, 19vw, 7rem);
+    font-size: clamp(3.35rem, 15vw, 5.75rem);
   }
 
   .hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .hero-stats > div {
+    display: grid;
+    gap: 0.35rem;
+    padding: 1rem;
+  }
+
+  .hero-stats > div + div {
+    border-top: 0;
+    border-left: 1px solid rgb(241 236 229 / 20%);
   }
 
   .section-heading {
@@ -616,12 +652,17 @@ input:focus-visible {
 
 @media (max-width: 480px) {
   .site-header {
-    padding: 1rem 0;
+    min-height: 3.25rem;
+    padding: 0.2rem 1rem;
+  }
+
+  .brand-lockup {
+    width: clamp(10.5rem, 58vw, 13rem);
   }
 
   .brand-mark {
-    width: 2.85rem;
-    height: 2.85rem;
+    width: 2.4rem;
+    height: 2.2rem;
   }
 
   .brand-name {
@@ -629,11 +670,20 @@ input:focus-visible {
   }
 
   .hero {
-    margin-top: 1rem;
+    min-height: clamp(30rem, 76svh, 36rem);
+    padding: 4rem 1rem 1.5rem;
   }
 
   .hero h1 {
-    font-size: clamp(3.75rem, 20vw, 5.25rem);
+    font-size: clamp(3rem, 15.5vw, 4.5rem);
+  }
+
+  .hero-copy {
+    padding-left: 1rem;
+  }
+
+  .hero-cta {
+    width: min(100%, 18rem);
   }
 
   .catalog {
@@ -650,7 +700,7 @@ input:focus-visible {
   }
 
   .poster {
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 2 / 3;
   }
 
   .poster-letter {
@@ -727,7 +777,7 @@ input:focus-visible {
 }
 
 .hero h1 {
-  color: var(--paper);
+  color: var(--warm-paper);
 }
 
 /* Genre filter */
@@ -743,7 +793,7 @@ input:focus-visible {
   display: grid;
   min-width: 220px;
   gap: 0.45rem;
-  color: var(--muted);
+  color: var(--champagne);
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -753,10 +803,10 @@ input:focus-visible {
 
 .genre-filter select {
   width: 100%;
-  border: 1px solid var(--ink);
+  border: 1px solid rgb(216 185 139 / 58%);
   border-radius: 0;
-  background: var(--paper-light);
-  color: var(--ink);
+  background: var(--archive-black);
+  color: var(--warm-paper);
   padding: 0.8rem 2.5rem 0.8rem 0.9rem;
   font: inherit;
   text-transform: none;
@@ -764,7 +814,7 @@ input:focus-visible {
 }
 
 .genre-filter select:focus-visible {
-  outline: 3px solid var(--brass);
+  outline: 3px solid var(--champagne);
   outline-offset: 3px;
 }
 
