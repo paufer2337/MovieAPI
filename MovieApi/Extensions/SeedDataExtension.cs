@@ -17,6 +17,7 @@ public static class SeedDataExtension
         if (context.Movies.Any())
         {
             SeedStudioGhibliMovies(context);
+            SeedAdditionalAnimeMovies(context);
             return;
         }
 
@@ -142,6 +143,7 @@ public static class SeedDataExtension
 
         context.SaveChanges();
         SeedStudioGhibliMovies(context);
+        SeedAdditionalAnimeMovies(context);
     }
 
     private static void SeedStudioGhibliMovies(MovieContext context)
@@ -182,6 +184,157 @@ public static class SeedDataExtension
                     Synopsis = seed.Synopsis,
                     Language = "Japanese",
                     Budget = 0
+                });
+            }
+        }
+
+        context.SaveChanges();
+    }
+
+    private static void SeedAdditionalAnimeMovies(MovieContext context)
+    {
+        var movieSeeds = new[]
+        {
+            new
+            {
+                Title = "The Cat Returns",
+                Year = 2002,
+                Genre = "Anime/Adventure/Fantasy",
+                Duration = 75,
+                Synopsis = "After saving a mysterious cat from being hit by a truck, shy high-school student Haru is swept into the Cat Kingdom and promised in marriage to its prince. With help from the elegant Baron, Muta and Toto, she must escape before she loses herself and becomes a cat forever.",
+                Budget = 20000000m,
+                ReviewRating = 4,
+                ReviewComment = "A playful and imaginative adventure with warmth, humor and one of Studio Ghibli's most charming fantasy worlds.",
+                Actors = new[]
+                {
+                    new { Name = "Chizuru Ikewaki", Role = "Haru Yoshioka" },
+                    new { Name = "Yoshihiko Hakamada", Role = "Baron Humbert von Gikkingen" },
+                    new { Name = "Tetsu Watanabe", Role = "Muta" },
+                    new { Name = "Yōsuke Saitō", Role = "Toto" },
+                    new { Name = "Tetsurō Tamba", Role = "The Cat King" },
+                    new { Name = "Aki Maeda", Role = "Yuki" },
+                    new { Name = "Takayuki Yamada", Role = "Prince Lune" }
+                }
+            },
+            new
+            {
+                Title = "Wolf Children",
+                Year = 2012,
+                Genre = "Anime/Drama/Fantasy",
+                Duration = 117,
+                Synopsis = "After falling in love with a man who can transform into a wolf, Hana becomes the mother of two extraordinary children, Yuki and Ame. When she must raise them alone, the family moves to the countryside, where each child gradually chooses between a human life and the call of the wild.",
+                Budget = 0m,
+                ReviewRating = 5,
+                ReviewComment = "A tender and beautifully observed story about parenthood, identity and allowing children to find their own paths.",
+                Actors = new[]
+                {
+                    new { Name = "Aoi Miyazaki", Role = "Hana" },
+                    new { Name = "Takao Osawa", Role = "Wolf Man" },
+                    new { Name = "Haru Kuroki", Role = "Yuki" },
+                    new { Name = "Momoka Ono", Role = "Young Yuki" },
+                    new { Name = "Yukito Nishii", Role = "Ame" },
+                    new { Name = "Amon Kabe", Role = "Young Ame" },
+                    new { Name = "Takuma Hiraoka", Role = "Sōhei Fujii" }
+                }
+            },
+            new
+            {
+                Title = "Demon Slayer -Kimetsu no Yaiba- The Movie: Mugen Train",
+                Year = 2020,
+                Genre = "Anime/Action/Fantasy",
+                Duration = 117,
+                Synopsis = "Tanjiro, Nezuko, Zenitsu and Inosuke board the Mugen Train to assist Flame Hashira Kyojuro Rengoku in investigating a series of disappearances. Their mission becomes a deadly battle when the passengers are trapped inside dreams created by a powerful demon.",
+                Budget = 0m,
+                ReviewRating = 5,
+                ReviewComment = "A visually spectacular and emotional continuation that combines intense action with an unforgettable performance from Kyojuro Rengoku.",
+                Actors = new[]
+                {
+                    new { Name = "Natsuki Hanae", Role = "Tanjiro Kamado" },
+                    new { Name = "Akari Kitō", Role = "Nezuko Kamado" },
+                    new { Name = "Hiro Shimono", Role = "Zenitsu Agatsuma" },
+                    new { Name = "Yoshitsugu Matsuoka", Role = "Inosuke Hashibira" },
+                    new { Name = "Satoshi Hino", Role = "Kyojuro Rengoku" },
+                    new { Name = "Daisuke Hirakawa", Role = "Enmu" },
+                    new { Name = "Akira Ishida", Role = "Akaza" }
+                }
+            }
+        };
+
+        var titles = movieSeeds.Select(seed => seed.Title).ToArray();
+        var actorNames = movieSeeds
+            .SelectMany(seed => seed.Actors)
+            .Select(actor => actor.Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var existingMovies = context.Movies
+            .Where(movie => titles.Contains(movie.Title))
+            .ToList();
+        var existingActors = context.Actors
+            .Where(actor => actorNames.Contains(actor.Name))
+            .ToDictionary(actor => actor.Name, StringComparer.Ordinal);
+
+        foreach (var seed in movieSeeds)
+        {
+            var movie = existingMovies.FirstOrDefault(existingMovie =>
+                existingMovie.Title == seed.Title && existingMovie.Year == seed.Year);
+
+            if (movie is null)
+            {
+                movie = new Movie
+                {
+                    Title = seed.Title,
+                    Year = seed.Year,
+                    Genre = seed.Genre,
+                    Duration = seed.Duration
+                };
+
+                context.Movies.Add(movie);
+            }
+
+            if (movie.Id == 0 || !context.MovieDetails.Any(details => details.MovieId == movie.Id))
+            {
+                context.MovieDetails.Add(new MovieDetails
+                {
+                    Movie = movie,
+                    Synopsis = seed.Synopsis,
+                    Language = "Japanese",
+                    Budget = seed.Budget
+                });
+            }
+
+            foreach (var actorSeed in seed.Actors)
+            {
+                if (!existingActors.TryGetValue(actorSeed.Name, out var actor))
+                {
+                    actor = new Actor { Name = actorSeed.Name };
+                    context.Actors.Add(actor);
+                    existingActors.Add(actor.Name, actor);
+                }
+
+                if (movie.Id == 0 || actor.Id == 0 ||
+                    !context.MovieActors.Any(movieActor =>
+                        movieActor.MovieId == movie.Id && movieActor.ActorId == actor.Id))
+                {
+                    context.MovieActors.Add(new MovieActor
+                    {
+                        Movie = movie,
+                        Actor = actor,
+                        Role = actorSeed.Role
+                    });
+                }
+            }
+
+            if (movie.Id == 0 || !context.Reviews.Any(review =>
+                    review.MovieId == movie.Id &&
+                    review.ReviewerName == "Archive Curator" &&
+                    review.Comment == seed.ReviewComment))
+            {
+                context.Reviews.Add(new Review
+                {
+                    Movie = movie,
+                    ReviewerName = "Archive Curator",
+                    Rating = seed.ReviewRating,
+                    Comment = seed.ReviewComment
                 });
             }
         }

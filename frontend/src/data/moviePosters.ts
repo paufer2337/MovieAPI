@@ -31,6 +31,10 @@ const moviePosters: Record<string, string> = {
   "Princess Mononoke": "/posters/princess-mononoke.webp",
   "Howl's Moving Castle": "/posters/howls-moving-castle.webp",
   "Spirited Away": "/posters/spirited-away.webp",
+  "The Cat Returns": "/posters/the-cat-returns.webp",
+  "Wolf Children": "/posters/wolf-children.webp",
+  "Demon Slayer -Kimetsu no Yaiba- The Movie: Mugen Train":
+    "/posters/demon-slayer.webp",
 };
 
 export function getMoviePoster(
