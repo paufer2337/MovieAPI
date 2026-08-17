@@ -11,6 +11,7 @@ export async function getMovies(
   options: GetMoviesOptions = {},
 ): Promise<Movie[]> {
   const url = new URL(API_URL);
+  url.searchParams.set("pageSize", "100");
 
   if (options.genre) {
     url.searchParams.set("genre", options.genre);
