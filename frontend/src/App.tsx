@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
 import type { Movie } from "./types/movie";
 import "./App.css";
@@ -118,30 +119,45 @@ function App() {
 
           {loadState === "success" && movies.length > 0 && (
             <div className="movie-grid">
-              {movies.map((movie, index) => (
-                <article className="movie-card" key={movie.id}>
-                  <div
-                    className={`poster poster-${movie.id % 4}`}
-                    aria-hidden="true"
-                  >
-                    <span className="poster-number">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
+              {movies.map((movie, index) => {
+                const posterUrl = getMoviePoster(movie.title);
 
-                    <span className="poster-letter">
-                      {movie.title.charAt(0)}
-                    </span>
+                return (
+                  <article className="movie-card" key={movie.id}>
+                    <div
+                      className={`poster poster-${movie.id % 4}`}
+                      aria-hidden="true"
+                    >
+                      {posterUrl ? (
+                        <img
+                          className="poster-image"
+                          src={posterUrl}
+                          alt=""
+                          width="800"
+                          height="1200"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="poster-letter">
+                          {movie.title.charAt(0)}
+                        </span>
+                      )}
 
-                    <span className="poster-year">{movie.year}</span>
-                  </div>
+                      <span className="poster-number">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
 
-                  <div className="movie-content">
-                    <p>{movie.genre}</p>
-                    <h3>{movie.title}</h3>
-                    <span>{movie.duration} minutes</span>
-                  </div>
-                </article>
-              ))}
+                      <span className="poster-year">{movie.year}</span>
+                    </div>
+
+                    <div className="movie-content">
+                      <p>{movie.genre}</p>
+                      <h3>{movie.title}</h3>
+                      <span>{movie.duration} minutes</span>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

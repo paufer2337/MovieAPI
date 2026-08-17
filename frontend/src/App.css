@@ -724,3 +724,7 @@ input:focus-visible {
   transform: scale(1.045);
   filter: saturate(1.08);
 }
+
+.hero h1 {
+  color: var(--paper);
+}

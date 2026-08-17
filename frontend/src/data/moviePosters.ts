@@ -1,16 +1,19 @@
-const moviePosters: Record<number, string> = {
-  1: "/posters/inception.webp",
-  2: "/posters/the-matrix.webp",
-  3: "/posters/braveheart.webp",
-  4: "/posters/gladiator.webp",
-  5: "/posters/troy.webp",
-  6: "/posters/titanic.webp",
-  7: "/posters/avatar.webp",
-  8: "/posters/hachi.webp",
-  9: "/posters/pursuit-of-happyness.webp",
-  10: "/posters/black-beauty.webp",
+const moviePosters: Record<string, string> = {
+  Inception: "/posters/inception.webp",
+  "The Matrix": "/posters/the-matrix.webp",
+  Braveheart: "/posters/braveheart.webp",
+  Gladiator: "/posters/gladiator.webp",
+  Troy: "/posters/troy.webp",
+  Titanic: "/posters/titanic.webp",
+  Avatar: "/posters/avatar.webp",
+  "Hachi: A Dog's Tale": "/posters/hachi.webp",
+  "The Pursuit of Happyness":
+    "/posters/pursuit-of-happyness.webp",
+  "Black Beauty": "/posters/black-beauty.webp",
 };
 
-export function getMoviePoster(movieId: number): string | undefined {
-  return moviePosters[movieId];
+export function getMoviePoster(
+  movieTitle: string,
+): string | undefined {
+  return moviePosters[movieTitle];
 }
