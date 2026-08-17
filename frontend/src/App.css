@@ -297,6 +297,7 @@ main {
 
 .section-heading h2 {
   margin: 0;
+  color: var(--ink);
   font-family: var(--serif);
   font-size: clamp(2.5rem, 5vw, 5rem);
   font-weight: 400;
@@ -733,7 +734,8 @@ input:focus-visible {
 
 .catalog-controls {
   display: grid;
-  justify-items: end;
+  align-self: end;
+  justify-items: stretch;
   gap: 0.85rem;
 }
 
@@ -745,6 +747,7 @@ input:focus-visible {
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.12em;
+  text-align: left;
   text-transform: uppercase;
 }
 

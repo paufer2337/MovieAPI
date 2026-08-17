@@ -149,13 +149,6 @@ function App() {
             </div>
 
             <div className="catalog-controls">
-              <span
-                className="count"
-                aria-live="polite"
-              >
-                {movies.length} titles
-              </span>
-
               <label
                 className="genre-filter"
                 htmlFor="genre-filter"
