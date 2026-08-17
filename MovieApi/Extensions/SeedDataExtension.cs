@@ -14,7 +14,11 @@ public static class SeedDataExtension
         var context = scope.ServiceProvider.GetRequiredService<MovieContext>();
         context.Database.EnsureCreated();
 
-        if (context.Movies.Any()) return;
+        if (context.Movies.Any())
+        {
+            SeedStudioGhibliMovies(context);
+            return;
+        }
 
         var movies = new List<Movie>
         
@@ -135,6 +139,52 @@ public static class SeedDataExtension
             new MovieActor { MovieId = FindMovie("The Hobbit: An Unexpected Journey").Id, ActorId = FindActor("Martin Freeman").Id, Role = "Bilbo Baggins" },
             new MovieActor { MovieId = FindMovie("The Hobbit: An Unexpected Journey").Id, ActorId = FindActor("Ian McKellen").Id, Role = "Gandalf" }
         );
+
+        context.SaveChanges();
+        SeedStudioGhibliMovies(context);
+    }
+
+    private static void SeedStudioGhibliMovies(MovieContext context)
+    {
+        var movieSeeds = new[]
+        {
+            new { Title = "My Neighbor Totoro", Year = 1988, Duration = 86, Synopsis = "Two sisters discover friendly forest spirits near their new home." },
+            new { Title = "Princess Mononoke", Year = 1997, Duration = 133, Synopsis = "A young warrior is caught between humans and the gods of the forest." },
+            new { Title = "Howl's Moving Castle", Year = 2004, Duration = 119, Synopsis = "A young woman under a curse seeks help from a mysterious wizard." },
+            new { Title = "Spirited Away", Year = 2001, Duration = 125, Synopsis = "A girl enters a spirit world and must save her transformed parents." }
+        };
+
+        var titles = movieSeeds.Select(seed => seed.Title).ToArray();
+        var existingMovies = context.Movies
+            .Where(movie => titles.Contains(movie.Title))
+            .ToDictionary(movie => movie.Title, StringComparer.Ordinal);
+
+        foreach (var seed in movieSeeds)
+        {
+            if (!existingMovies.TryGetValue(seed.Title, out var movie))
+            {
+                movie = new Movie
+                {
+                    Title = seed.Title,
+                    Year = seed.Year,
+                    Genre = "Anime",
+                    Duration = seed.Duration
+                };
+
+                context.Movies.Add(movie);
+            }
+
+            if (movie.Id == 0 || !context.MovieDetails.Any(details => details.MovieId == movie.Id))
+            {
+                context.MovieDetails.Add(new MovieDetails
+                {
+                    Movie = movie,
+                    Synopsis = seed.Synopsis,
+                    Language = "Japanese",
+                    Budget = 0
+                });
+            }
+        }
 
         context.SaveChanges();
     }

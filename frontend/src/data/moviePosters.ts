@@ -27,6 +27,10 @@ const moviePosters: Record<string, string> = {
   "The Hobbit: The Desolation of Smaug": "/posters/hobbit-ii.webp",
   "The Hobbit: The Battle of the Five Armies":
     "/posters/hobbit-iii.webp",
+  "My Neighbor Totoro": "/posters/totoro.webp",
+  "Princess Mononoke": "/posters/princess-mononoke.webp",
+  "Howl's Moving Castle": "/posters/howls-moving-castle.webp",
+  "Spirited Away": "/posters/spirited-away.webp",
 };
 
 export function getMoviePoster(
