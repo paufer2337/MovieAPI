@@ -728,3 +728,50 @@ input:focus-visible {
 .hero h1 {
   color: var(--paper);
 }
+
+/* Genre filter */
+
+.catalog-controls {
+  display: grid;
+  justify-items: end;
+  gap: 0.85rem;
+}
+
+.genre-filter {
+  display: grid;
+  min-width: 220px;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.genre-filter select {
+  width: 100%;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper-light);
+  color: var(--ink);
+  padding: 0.8rem 2.5rem 0.8rem 0.9rem;
+  font: inherit;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.genre-filter select:focus-visible {
+  outline: 3px solid var(--brass);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .catalog-controls {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .genre-filter {
+    min-width: 0;
+  }
+}

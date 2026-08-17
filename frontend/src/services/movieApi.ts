@@ -2,10 +2,23 @@ import type { Movie } from "../types/movie";
 
 const API_URL = "http://localhost:5000/api/Movies";
 
+type GetMoviesOptions = {
+  genre?: string;
+  signal?: AbortSignal;
+};
+
 export async function getMovies(
-  signal?: AbortSignal,
+  options: GetMoviesOptions = {},
 ): Promise<Movie[]> {
-  const response = await fetch(API_URL, { signal });
+  const url = new URL(API_URL);
+
+  if (options.genre) {
+    url.searchParams.set("genre", options.genre);
+  }
+
+  const response = await fetch(url, {
+    signal: options.signal,
+  });
 
   if (!response.ok) {
     throw new Error(`Could not fetch movies (${response.status}).`);

@@ -8,19 +8,44 @@ type LoadState = "loading" | "success" | "error";
 
 function App() {
   const [movies, setMovies] = useState<Movie[]>([]);
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [genres, setGenres] = useState<string[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState("");
+  const [loadState, setLoadState] =
+    useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
 
-    getMovies(controller.signal)
+    setLoadState("loading");
+    setErrorMessage("");
+
+    getMovies({
+      signal: controller.signal,
+      genre: selectedGenre || undefined,
+    })
       .then((data) => {
         setMovies(data);
+
+        if (!selectedGenre) {
+          const availableGenres = [
+            ...new Set(
+              data.map((movie) => movie.genre),
+            ),
+          ].sort((first, second) =>
+            first.localeCompare(second),
+          );
+
+          setGenres(availableGenres);
+        }
+
         setLoadState("success");
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
           return;
         }
 
@@ -34,20 +59,41 @@ function App() {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [selectedGenre]);
 
   const totalRuntime = useMemo(
-    () => movies.reduce((sum, movie) => sum + movie.duration, 0),
+    () =>
+      movies.reduce(
+        (sum, movie) => sum + movie.duration,
+        0,
+      ),
     [movies],
   );
 
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Cinematheque home">
-          <span className="brand-monogram">CQ</span>
-          <span className="brand-edition">11</span>
-          <span>CinematheQue</span>
+        <a
+          className="brand"
+          href="/"
+          aria-label="CinematheQue home"
+        >
+          <span
+            className="brand-mark"
+            aria-hidden="true"
+          >
+            <span className="brand-monogram">
+              CQ
+            </span>
+
+            <span className="brand-edition">
+              11
+            </span>
+          </span>
+
+          <span className="brand-name">
+            CinematheQue
+          </span>
         </a>
 
         <span className="header-label">
@@ -58,7 +104,9 @@ function App() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <p className="eyebrow">The permanent collection</p>
+            <p className="eyebrow">
+              The permanent collection
+            </p>
 
             <h1>
               Stories worth
@@ -67,8 +115,8 @@ function App() {
             </h1>
 
             <p className="intro">
-              A living film archive connected directly to our ASP.NET Core
-              API.
+              A living film archive connected directly
+              to our ASP.NET Core API.
             </p>
           </div>
 
@@ -85,81 +133,162 @@ function App() {
           </div>
         </section>
 
-        <section className="catalog" aria-labelledby="catalog-title">
+        <section
+          className="catalog"
+          aria-labelledby="catalog-title"
+        >
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Archive index</p>
-              <h2 id="catalog-title">All films</h2>
+              <p className="eyebrow">
+                Archive index
+              </p>
+
+              <h2 id="catalog-title">
+                All films
+              </h2>
             </div>
 
-            <span className="count">{movies.length} titles</span>
+            <div className="catalog-controls">
+              <span
+                className="count"
+                aria-live="polite"
+              >
+                {movies.length} titles
+              </span>
+
+              <label
+                className="genre-filter"
+                htmlFor="genre-filter"
+              >
+                <span>Filter by genre</span>
+
+                <select
+                  id="genre-filter"
+                  value={selectedGenre}
+                  onChange={(event) =>
+                    setSelectedGenre(
+                      event.target.value,
+                    )
+                  }
+                >
+                  <option value="">
+                    All genres
+                  </option>
+
+                  {genres.map((genre) => (
+                    <option
+                      key={genre}
+                      value={genre}
+                    >
+                      {genre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           {loadState === "loading" && (
-            <div className="movie-grid" aria-label="Loading movies">
-              {Array.from({ length: 6 }, (_, index) => (
-                <div className="movie-card skeleton" key={index} />
-              ))}
+            <div
+              className="movie-grid"
+              aria-label="Loading movies"
+            >
+              {Array.from(
+                { length: 6 },
+                (_, index) => (
+                  <div
+                    className="movie-card skeleton"
+                    key={index}
+                  />
+                ),
+              )}
             </div>
           )}
 
           {loadState === "error" && (
-            <div className="message error" role="alert">
-              <strong>The archive could not be opened.</strong>
+            <div
+              className="message error"
+              role="alert"
+            >
+              <strong>
+                The archive could not be opened.
+              </strong>
+
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {loadState === "success" && movies.length === 0 && (
-            <div className="message">
-              <strong>The archive is empty.</strong>
-              <span>Add the first movie to begin the collection.</span>
-            </div>
-          )}
+          {loadState === "success" &&
+            movies.length === 0 && (
+              <div className="message">
+                <strong>
+                  {selectedGenre
+                    ? "No films found."
+                    : "The archive is empty."}
+                </strong>
 
-          {loadState === "success" && movies.length > 0 && (
-            <div className="movie-grid">
-              {movies.map((movie, index) => {
-                const posterUrl = getMoviePoster(movie.title);
+                <span>
+                  {selectedGenre
+                    ? "Try selecting another genre."
+                    : "Add the first movie to begin the collection."}
+                </span>
+              </div>
+            )}
 
-                return (
-                  <article className="movie-card" key={movie.id}>
-                    <div
-                      className={`poster poster-${movie.id % 4}`}
-                      aria-hidden="true"
+          {loadState === "success" &&
+            movies.length > 0 && (
+              <div className="movie-grid">
+                {movies.map((movie, index) => {
+                  const posterUrl =
+                    getMoviePoster(movie.title);
+
+                  return (
+                    <article
+                      className="movie-card"
+                      key={movie.id}
                     >
-                      {posterUrl ? (
-                        <img
-                          className="poster-image"
-                          src={posterUrl}
-                          alt=""
-                          width="800"
-                          height="1200"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className="poster-letter">
-                          {movie.title.charAt(0)}
+                      <div
+                        className={`poster poster-${movie.id % 4}`}
+                      >
+                        {posterUrl ? (
+                          <img
+                            className="poster-image"
+                            src={posterUrl}
+                            alt=""
+                            width={800}
+                            height={1200}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="poster-letter">
+                            {movie.title.charAt(0)}
+                          </span>
+                        )}
+
+                        <span className="poster-number">
+                          {String(
+                            index + 1,
+                          ).padStart(2, "0")}
                         </span>
-                      )}
 
-                      <span className="poster-number">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
+                        <span className="poster-year">
+                          {movie.year}
+                        </span>
+                      </div>
 
-                      <span className="poster-year">{movie.year}</span>
-                    </div>
+                      <div className="movie-content">
+                        <p>{movie.genre}</p>
+                        <h3>{movie.title}</h3>
 
-                    <div className="movie-content">
-                      <p>{movie.genre}</p>
-                      <h3>{movie.title}</h3>
-                      <span>{movie.duration} minutes</span>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                        <span>
+                          {movie.duration} minutes
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
         </section>
       </main>
     </div>
