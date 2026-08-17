@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MovieModal } from "./components/MovieModal";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
 import type { Movie } from "./types/movie";
@@ -10,6 +11,7 @@ function App() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState("");
+  const [selectedMovieId, setSelectedMovieId] = useState<number | null>(null);
   const [loadState, setLoadState] =
     useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -65,6 +67,10 @@ function App() {
 
     return () => controller.abort();
   }, [selectedGenre]);
+
+  const selectedMovie = movies.find(
+    (movie) => movie.id === selectedMovieId,
+  );
 
   return (
     <div className="app-shell">
@@ -208,48 +214,52 @@ function App() {
                     getMoviePoster(movie.title);
 
                   return (
-                    <article
-                      className="movie-card"
-                      key={movie.id}
-                      tabIndex={0}
-                    >
-                      <div
-                        className={`poster poster-${movie.id % 4}`}
+                    <article className="movie-card" key={movie.id}>
+                      <button
+                        className="movie-card-trigger"
+                        type="button"
+                        aria-label={`View details for ${movie.title}`}
+                        aria-haspopup="dialog"
+                        onClick={() => setSelectedMovieId(movie.id)}
                       >
-                        {posterUrl ? (
-                          <img
-                            className="poster-image"
-                            src={posterUrl}
-                            alt=""
-                            width={800}
-                            height={1200}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="poster-letter">
-                            {movie.title.charAt(0)}
+                        <div
+                          className={`poster poster-${movie.id % 4}`}
+                        >
+                          {posterUrl ? (
+                            <img
+                              className="poster-image"
+                              src={posterUrl}
+                              alt=""
+                              width={800}
+                              height={1200}
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="poster-letter">
+                              {movie.title.charAt(0)}
+                            </span>
+                          )}
+
+                          <span className="poster-number">
+                            {String(
+                              index + 1,
+                            ).padStart(2, "0")}
                           </span>
-                        )}
 
-                        <span className="poster-number">
-                          {String(
-                            index + 1,
-                          ).padStart(2, "0")}
-                        </span>
+                          <span className="poster-year">
+                            {movie.year}
+                          </span>
+                        </div>
 
-                        <span className="poster-year">
-                          {movie.year}
-                        </span>
-                      </div>
+                        <div className="movie-content">
+                          <p>{movie.genre}</p>
+                          <h3>{movie.title}</h3>
 
-                      <div className="movie-content">
-                        <p>{movie.genre}</p>
-                        <h3>{movie.title}</h3>
-
-                        <span>
-                          {movie.duration} minutes
-                        </span>
-                      </div>
+                          <span>
+                            {movie.duration} minutes
+                          </span>
+                        </div>
+                      </button>
                     </article>
                   );
                 })}
@@ -257,6 +267,31 @@ function App() {
             )}
         </section>
       </main>
+
+      {selectedMovieId !== null && (
+        <MovieModal
+          movieId={selectedMovieId}
+          posterUrl={
+            selectedMovie
+              ? getMoviePoster(selectedMovie.title)
+              : undefined
+          }
+          onClose={() => setSelectedMovieId(null)}
+          onDeleted={(movieId) => {
+            setMovies((current) =>
+              current.filter((movie) => movie.id !== movieId),
+            );
+            setSelectedMovieId(null);
+          }}
+          onUpdated={(updatedMovie) => {
+            setMovies((current) =>
+              current.map((movie) =>
+                movie.id === updatedMovie.id ? updatedMovie : movie,
+              ),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

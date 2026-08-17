@@ -359,15 +359,27 @@ main {
   transition: transform 220ms ease;
 }
 
-.movie-card:hover {
+.movie-card-trigger {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.movie-card:hover,
+.movie-card:focus-within {
   transform: translateY(-4px);
 }
 
-.movie-card:focus-visible {
-  transform: translateY(-4px);
+.movie-card-trigger:focus-visible {
+  outline: none;
 }
 
-.movie-card:focus-visible .poster {
+.movie-card:focus-within .poster {
   border-color: var(--champagne);
   box-shadow: 0 0 0 3px rgb(216 185 139 / 24%);
 }
