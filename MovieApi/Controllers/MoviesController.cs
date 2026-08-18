@@ -46,12 +46,32 @@ public class MoviesController : ControllerBase
         return movie is null ? NotFound() : Ok(movie);
     }
 
+    [HttpGet("{id}/reviews")]
+    public async Task<ActionResult<List<ReviewDto>>> GetReviews(int id)
+    {
+        var reviews = await _service.GetReviewsAsync(id);
+        return reviews is null ? NotFound() : Ok(reviews);
+    }
+
     [HttpPost]
     public async Task<ActionResult<MovieDto>> CreateMovie(MovieCreateDto dto)
     {
         var created = await _service.CreateAsync(dto);
         return CreatedAtAction(nameof(GetMovie), new { id = created.Id }, created);
     }
+
+    [HttpPost("{id}/reviews")]
+    public async Task<ActionResult<ReviewDto>> CreateReview(int id, ReviewCreateDto dto)
+    {
+        var created = await _service.CreateReviewAsync(id, dto);
+        return created is null
+            ? NotFound()
+            : CreatedAtAction(nameof(GetMovieDetails), new { id }, created);
+    }
+
+    [HttpDelete("{id}/reviews/{reviewId}")]
+    public async Task<IActionResult> DeleteReview(int id, int reviewId)
+        => await _service.DeleteReviewAsync(id, reviewId) ? NoContent() : NotFound();
 
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateMovie(int id, MovieUpdateDto dto)

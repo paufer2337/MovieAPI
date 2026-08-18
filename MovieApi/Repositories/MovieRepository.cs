@@ -47,7 +47,18 @@ public class MovieRepository : IMovieRepository
         .Include(m => m.MovieActors).ThenInclude(ma => ma.Actor)
         .FirstOrDefaultAsync(m => m.Id == id);
 
+    public Task<List<Review>> GetReviewsAsync(int movieId) => _context.Reviews
+        .Where(review => review.MovieId == movieId)
+        .OrderBy(review => review.Id)
+        .ToListAsync();
+
+    public Task<Review?> GetReviewAsync(int movieId, int reviewId) =>
+        _context.Reviews.FirstOrDefaultAsync(review =>
+            review.MovieId == movieId && review.Id == reviewId);
+
     public async Task AddAsync(Movie movie) => await _context.Movies.AddAsync(movie);
+    public async Task AddReviewAsync(Review review) => await _context.Reviews.AddAsync(review);
     public void Delete(Movie movie) => _context.Movies.Remove(movie);
+    public void DeleteReview(Review review) => _context.Reviews.Remove(review);
     public Task SaveAsync() => _context.SaveChangesAsync();
 }

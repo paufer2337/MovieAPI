@@ -53,6 +53,41 @@ public class MovieServiceTests
     }
 
     [Fact]
+    public async Task GetDetailsAsync_MapsActorRole()
+    {
+        var movie = new Movie
+        {
+            Id = 7,
+            Title = "The Cat Returns",
+            Year = 2002,
+            Genre = "Anime/Adventure/Fantasy",
+            Duration = 75
+        };
+        var actor = new Actor
+        {
+            Id = 11,
+            Name = "Chizuru Ikewaki",
+            BirthYear = 1981
+        };
+        movie.MovieActors.Add(new MovieActor
+        {
+            Movie = movie,
+            MovieId = movie.Id,
+            Actor = actor,
+            ActorId = actor.Id,
+            Role = "Haru Yoshioka"
+        });
+        _repoMock.Setup(r => r.GetDetailsAsync(7)).ReturnsAsync(movie);
+
+        var result = await _service.GetDetailsAsync(7);
+
+        var returnedActor = Assert.Single(Assert.IsType<List<ActorDto>>(result?.Actors));
+        Assert.Equal("Chizuru Ikewaki", returnedActor.Name);
+        Assert.Equal(1981, returnedActor.BirthYear);
+        Assert.Equal("Haru Yoshioka", returnedActor.Role);
+    }
+
+    [Fact]
     public async Task CreateAsync_AddsMovie_AndReturnsDto()
     {
         var dto = new MovieCreateDto
@@ -76,6 +111,131 @@ public class MovieServiceTests
 
         _repoMock.Verify(r => r.AddAsync(It.IsAny<Movie>()), Times.Once);
         _repoMock.Verify(r => r.SaveAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_AddsReviewForMovie_AndReturnsDto()
+    {
+        var movie = new Movie { Id = 7, Title = "Spirited Away" };
+        var dto = new ReviewCreateDto
+        {
+            ReviewerName = "Archive Visitor",
+            Comment = "A beautiful and imaginative film.",
+            Rating = 5
+        };
+
+        _repoMock.Setup(r => r.GetByIdAsync(7)).ReturnsAsync(movie);
+        _repoMock.Setup(r => r.AddReviewAsync(It.IsAny<Review>()))
+            .Returns(Task.CompletedTask);
+        _repoMock.Setup(r => r.SaveAsync()).Returns(Task.CompletedTask);
+
+        var result = await _service.CreateReviewAsync(7, dto);
+
+        Assert.NotNull(result);
+        Assert.Equal(dto.ReviewerName, result.ReviewerName);
+        Assert.Equal(dto.Comment, result.Comment);
+        Assert.Equal(5, result.Rating);
+        _repoMock.Verify(r => r.AddReviewAsync(It.Is<Review>(review =>
+            review.MovieId == 7 && review.Rating == 5)), Times.Once);
+        _repoMock.Verify(r => r.SaveAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateReviewAsync_ReturnsNull_WhenMovieDoesNotExist()
+    {
+        var dto = new ReviewCreateDto
+        {
+            ReviewerName = "Archive Visitor",
+            Comment = "A thoughtful review comment.",
+            Rating = 4
+        };
+
+        _repoMock.Setup(r => r.GetByIdAsync(404)).ReturnsAsync((Movie?)null);
+
+        var result = await _service.CreateReviewAsync(404, dto);
+
+        Assert.Null(result);
+        _repoMock.Verify(r => r.AddReviewAsync(It.IsAny<Review>()), Times.Never);
+        _repoMock.Verify(r => r.SaveAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetReviewsAsync_ReturnsMappedReviews_ForExistingMovie()
+    {
+        var reviews = new List<Review>
+        {
+            new()
+            {
+                Id = 8,
+                MovieId = 7,
+                ReviewerName = "Archive Curator",
+                Comment = "A balanced and thoughtful archive review.",
+                Rating = 4
+            }
+        };
+        _repoMock.Setup(r => r.GetByIdAsync(7))
+            .ReturnsAsync(new Movie { Id = 7, Title = "Spirited Away" });
+        _repoMock.Setup(r => r.GetReviewsAsync(7)).ReturnsAsync(reviews);
+
+        var result = await _service.GetReviewsAsync(7);
+
+        var review = Assert.Single(Assert.IsType<List<ReviewDto>>(result));
+        Assert.Equal(8, review.Id);
+        Assert.Equal("Archive Curator", review.ReviewerName);
+    }
+
+    [Fact]
+    public async Task GetReviewsAsync_ReturnsNull_WhenMovieDoesNotExist()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(404)).ReturnsAsync((Movie?)null);
+
+        var result = await _service.GetReviewsAsync(404);
+
+        Assert.Null(result);
+        _repoMock.Verify(r => r.GetReviewsAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteReviewAsync_DeletesOwnedReview_AndSavesOnce()
+    {
+        var movie = new Movie { Id = 7, Title = "Spirited Away" };
+        var review = new Review { Id = 8, MovieId = 7 };
+        _repoMock.Setup(r => r.GetByIdAsync(7)).ReturnsAsync(movie);
+        _repoMock.Setup(r => r.GetReviewAsync(7, 8)).ReturnsAsync(review);
+
+        var result = await _service.DeleteReviewAsync(7, 8);
+
+        Assert.True(result);
+        _repoMock.Verify(r => r.DeleteReview(review), Times.Once);
+        _repoMock.Verify(r => r.SaveAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteReviewAsync_ReturnsFalse_WhenMovieDoesNotExist()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(404)).ReturnsAsync((Movie?)null);
+
+        var result = await _service.DeleteReviewAsync(404, 8);
+
+        Assert.False(result);
+        _repoMock.Verify(r => r.GetReviewAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        _repoMock.Verify(r => r.DeleteReview(It.IsAny<Review>()), Times.Never);
+        _repoMock.Verify(r => r.SaveAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteReviewAsync_ReturnsFalse_WhenReviewIsMissingOrBelongsToAnotherMovie()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(7))
+            .ReturnsAsync(new Movie { Id = 7, Title = "Spirited Away" });
+        _repoMock.Setup(r => r.GetReviewAsync(7, 99)).ReturnsAsync((Review?)null);
+
+        var result = await _service.DeleteReviewAsync(7, 99);
+
+        Assert.False(result);
+        _repoMock.Verify(r => r.GetReviewAsync(7, 99), Times.Once);
+        _repoMock.Verify(r => r.DeleteReview(It.IsAny<Review>()), Times.Never);
+        _repoMock.Verify(r => r.SaveAsync(), Times.Never);
     }
 
     [Fact]
