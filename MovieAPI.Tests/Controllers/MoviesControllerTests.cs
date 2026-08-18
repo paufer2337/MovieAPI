@@ -69,6 +69,96 @@ public class MoviesControllerTests
         Assert.Equal(createdDto, createdResult.Value);
     }
 
+    [Fact]
+    public async Task CreateReview_ReturnsCreatedReview()
+    {
+        var dto = new ReviewCreateDto
+        {
+            ReviewerName = "Archive Visitor",
+            Comment = "A memorable and beautifully made film.",
+            Rating = 5
+        };
+        var review = new ReviewDto(12, dto.ReviewerName, dto.Comment, dto.Rating);
+
+        _serviceMock.Setup(service => service.CreateReviewAsync(3, dto))
+            .ReturnsAsync(review);
+
+        var result = await _controller.CreateReview(3, dto);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(nameof(MoviesController.GetMovieDetails), createdResult.ActionName);
+        Assert.Equal(review, createdResult.Value);
+        _serviceMock.Verify(service => service.CreateReviewAsync(3, dto), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateReview_ReturnsNotFound_WhenMovieDoesNotExist()
+    {
+        var dto = new ReviewCreateDto
+        {
+            ReviewerName = "Archive Visitor",
+            Comment = "A thoughtful review comment.",
+            Rating = 4
+        };
+
+        _serviceMock.Setup(service => service.CreateReviewAsync(404, dto))
+            .ReturnsAsync((ReviewDto?)null);
+
+        var result = await _controller.CreateReview(404, dto);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetReviews_ReturnsReviews_WhenMovieExists()
+    {
+        var reviews = new List<ReviewDto>
+        {
+            new(4, "Archive Visitor", "A thoughtful review comment.", 4)
+        };
+        _serviceMock.Setup(service => service.GetReviewsAsync(3))
+            .ReturnsAsync(reviews);
+
+        var result = await _controller.GetReviews(3);
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(reviews, okResult.Value);
+    }
+
+    [Fact]
+    public async Task GetReviews_ReturnsNotFound_WhenMovieDoesNotExist()
+    {
+        _serviceMock.Setup(service => service.GetReviewsAsync(404))
+            .ReturnsAsync((List<ReviewDto>?)null);
+
+        var result = await _controller.GetReviews(404);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task DeleteReview_ReturnsNoContent_WhenReviewExists()
+    {
+        _serviceMock.Setup(service => service.DeleteReviewAsync(3, 12))
+            .ReturnsAsync(true);
+
+        var result = await _controller.DeleteReview(3, 12);
+
+        Assert.IsType<NoContentResult>(result);
+        _serviceMock.Verify(service => service.DeleteReviewAsync(3, 12), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteReview_ReturnsNotFound_WhenMovieOrReviewDoesNotExist()
+    {
+        _serviceMock.Setup(service => service.DeleteReviewAsync(3, 404))
+            .ReturnsAsync(false);
+
+        var result = await _controller.DeleteReview(3, 404);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
 
     [Fact]
     public async Task UpdateMovie_ReturnsNotFound_WhenDoesNotExist()

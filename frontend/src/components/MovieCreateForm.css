@@ -1,0 +1,424 @@
+.site-header {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-mode-toggle,
+.add-film-button {
+  min-height: 2.75rem;
+  border: 1px solid var(--champagne);
+  border-radius: 0;
+  background: transparent;
+  color: var(--champagne);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  padding: 0.65rem 1rem;
+  text-transform: uppercase;
+}
+
+.admin-mode-toggle[aria-pressed="true"],
+.add-film-button {
+  background: var(--champagne);
+  color: var(--obsidian);
+}
+
+.admin-mode-toggle:hover,
+.add-film-button:hover {
+  border-color: var(--soft-white);
+  background: var(--soft-white);
+  color: var(--obsidian);
+}
+
+.admin-mode-toggle:focus-visible,
+.add-film-button:focus-visible,
+.movie-create-dialog-close:focus-visible,
+.movie-create-cancel:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 40%);
+  outline-offset: 3px;
+}
+
+.catalog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 0.85rem;
+}
+
+.genre-filter {
+  flex: 1 1 220px;
+}
+
+.add-film-button,
+.add-film-placeholder {
+  width: 9.25rem;
+  flex: 0 0 9.25rem;
+}
+
+.add-film-placeholder {
+  min-height: 2.75rem;
+}
+
+.creation-status {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
+  max-width: min(28rem, calc(100% - 2rem));
+  margin: 0;
+  border: 1px solid rgb(201 232 213 / 55%);
+  background: var(--forest-dark);
+  color: #dff4e7;
+  padding: 0.8rem 1rem;
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 32%);
+}
+
+.creation-status:empty {
+  display: none;
+}
+
+.movie-create-dialog {
+  width: min(46rem, calc(100% - 2rem));
+  max-height: calc(100svh - 2rem);
+  overflow-y: auto;
+  border: 1px solid rgb(216 185 139 / 38%);
+  background: var(--archive-black);
+  color: var(--warm-paper);
+  padding: clamp(1.2rem, 3vw, 2rem);
+  box-shadow: 0 2rem 6rem rgb(0 0 0 / 70%);
+}
+
+.movie-create-dialog::backdrop {
+  background: rgb(3 3 3 / 78%);
+  backdrop-filter: blur(3px);
+}
+
+.movie-create-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgb(216 185 139 / 30%);
+  padding-bottom: 1rem;
+}
+
+.movie-create-dialog-header p {
+  margin: 0 0 0.45rem;
+  color: var(--champagne);
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.movie-create-dialog-header h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.movie-create-dialog-close {
+  display: grid;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgb(216 185 139 / 40%);
+  background: transparent;
+  color: var(--warm-paper);
+  cursor: pointer;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.movie-create-dialog-close:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.movie-create-form {
+  margin: 0;
+  padding: 0;
+}
+
+.movie-create-form fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.movie-create-form legend {
+  margin-bottom: 1rem;
+  color: var(--warm-paper);
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.movie-create-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "title title"
+    "year duration"
+    "genres genres"
+    "actions actions";
+  align-items: start;
+  gap: 0.9rem;
+}
+
+.movie-create-field-title {
+  grid-area: title;
+}
+
+.movie-create-field-year {
+  grid-area: year;
+}
+
+.movie-create-field-duration {
+  grid-area: duration;
+}
+
+.movie-genre-picker {
+  display: grid;
+  min-width: 0;
+  grid-area: genres;
+  gap: 0.4rem;
+}
+
+.movie-genre-picker legend {
+  margin: 0;
+  color: rgb(241 236 229 / 78%);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.movie-genre-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(216 185 139 / 38%);
+  border-radius: 0;
+  background: rgb(11 10 12 / 78%);
+  color: var(--soft-white);
+  cursor: pointer;
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+}
+
+.movie-genre-trigger[aria-expanded="true"] {
+  border-color: var(--champagne);
+}
+
+.movie-genre-trigger[aria-invalid="true"] {
+  border-color: #f09b8e;
+}
+
+.movie-genre-trigger:focus-visible,
+.movie-genre-options input:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 30%);
+  outline-offset: 2px;
+}
+
+.movie-genre-options {
+  display: grid;
+  max-height: min(17rem, 40svh);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem 0.75rem;
+  overflow-y: auto;
+  border: 1px solid rgb(216 185 139 / 28%);
+  background: rgb(11 10 12 / 72%);
+  padding: 0.75rem;
+}
+
+.movie-genre-options[hidden] {
+  display: none;
+}
+
+.movie-genre-options label {
+  display: flex;
+  min-width: 0;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--warm-paper);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.movie-genre-options input {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  accent-color: var(--champagne);
+}
+
+.movie-create-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.movie-create-field label {
+  color: rgb(241 236 229 / 78%);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.movie-create-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgb(216 185 139 / 38%);
+  border-radius: 0;
+  background: rgb(11 10 12 / 78%);
+  color: var(--soft-white);
+  padding: 0.7rem 0.8rem;
+}
+
+.movie-create-field input:focus-visible {
+  border-color: var(--champagne);
+  outline: 3px solid rgb(216 185 139 / 30%);
+  outline-offset: 2px;
+}
+
+.movie-create-field input[aria-invalid="true"] {
+  border-color: #f09b8e;
+}
+
+.movie-create-error {
+  color: #ffc0b5;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.movie-create-actions {
+  grid-area: actions;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.movie-create-submit,
+.movie-create-cancel {
+  min-height: 2.75rem;
+  border: 1px solid var(--champagne);
+  background: var(--champagne);
+  color: var(--obsidian);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.7rem 1.2rem;
+  text-transform: uppercase;
+}
+
+.movie-create-cancel {
+  border-color: rgb(216 185 139 / 45%);
+  background: transparent;
+  color: var(--warm-paper);
+}
+
+.movie-create-submit:hover:not(:disabled) {
+  background: var(--soft-white);
+}
+
+.movie-create-cancel:hover:not(:disabled) {
+  border-color: var(--warm-paper);
+}
+
+.movie-create-submit:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 40%);
+  outline-offset: 3px;
+}
+
+.movie-create-form fieldset:disabled {
+  opacity: 0.72;
+}
+
+.movie-create-submit:disabled,
+.movie-create-cancel:disabled {
+  cursor: wait;
+}
+
+.movie-create-message {
+  min-height: 1.3rem;
+  margin: 0.8rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.movie-create-message-error {
+  color: #ffc0b5;
+}
+
+@media (max-width: 600px) {
+  .site-header {
+    gap: 0.5rem;
+  }
+
+  .site-header .brand-lockup {
+    width: clamp(8.75rem, 42vw, 11rem);
+  }
+
+  .admin-mode-toggle {
+    min-height: 2.5rem;
+    font-size: 0.56rem;
+    padding-inline: 0.55rem;
+    white-space: nowrap;
+  }
+
+  .catalog-controls {
+    justify-content: stretch;
+  }
+
+  .add-film-button,
+  .add-film-placeholder {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .movie-create-fields {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "year"
+      "duration"
+      "genres"
+      "actions";
+  }
+
+  .movie-genre-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .movie-create-actions {
+    flex-direction: column-reverse;
+  }
+
+  .movie-create-submit,
+  .movie-create-cancel {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .movie-create-dialog::backdrop {
+    backdrop-filter: none;
+  }
+}
