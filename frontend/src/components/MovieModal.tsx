@@ -59,15 +59,21 @@ export function MovieModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const confirmationRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    setMovie(null);
     setLoadState("loading");
     setLoadError("");
+    setActiveTab("details");
+    setIsEditing(false);
+    setShowDeleteConfirmation(false);
+    setActionError("");
 
     getMovieDetails(movieId, controller.signal)
       .then((data) => {
@@ -89,18 +95,33 @@ export function MovieModal({
   }, [movieId]);
 
   useEffect(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
+    const activeElement = document.activeElement as HTMLElement | null;
+    if (activeElement?.classList.contains("movie-card-trigger")) {
+      previousFocusRef.current = activeElement;
+    }
 
-    return () => {
-      document.body.style.overflow = previousOverflow;
+    closeButtonRef.current?.focus({ preventScroll: true });
+
+    if (window.matchMedia("(max-width: 1200px)").matches) {
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+
+      panelRef.current?.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    }
+  }, [movieId]);
+
+  useEffect(
+    () => () => {
       if (previousFocusRef.current?.isConnected) {
         previousFocusRef.current.focus();
       }
-    };
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (showDeleteConfirmation) {
@@ -116,7 +137,7 @@ export function MovieModal({
 
   const isBusy = isSaving || isDeleting || isSubmittingReview;
 
-  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
 
@@ -133,10 +154,10 @@ export function MovieModal({
       return;
     }
 
-    if (event.key !== "Tab") return;
+    if (event.key !== "Tab" || !showDeleteConfirmation) return;
 
     const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
+      confirmationRef.current?.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
       ) ?? [],
     ).filter((element) => element.offsetParent !== null);
@@ -268,26 +289,13 @@ export function MovieModal({
   }
 
   return (
-    <div
-      className="movie-modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isBusy) onClose();
-      }}
-    >
-      <div
-        ref={dialogRef}
-        className="movie-modal"
-        role={showDeleteConfirmation ? "alertdialog" : "dialog"}
-        aria-modal="true"
-        aria-labelledby={
-          showDeleteConfirmation
-            ? "delete-confirmation-title"
-            : movie
-              ? "movie-modal-title"
-              : undefined
-        }
+      <aside
+        id="movie-details-panel"
+        ref={panelRef}
+        className="movie-details-panel"
+        aria-labelledby={movie ? "movie-modal-title" : undefined}
         aria-label={!movie ? "Movie details" : undefined}
-        onKeyDown={handleDialogKeyDown}
+        onKeyDown={handlePanelKeyDown}
       >
         <button
           ref={closeButtonRef}
@@ -315,7 +323,11 @@ export function MovieModal({
 
         {movie && showDeleteConfirmation && (
           <section
+            ref={confirmationRef}
             className="delete-confirmation"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-confirmation-title"
           >
             <p className="modal-kicker">Delete film</p>
             <h2 id="delete-confirmation-title">Delete “{movie.title}”?</h2>
@@ -641,8 +653,7 @@ export function MovieModal({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </aside>
   );
 }
 

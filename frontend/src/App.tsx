@@ -102,11 +102,6 @@ function App() {
             <p className="intro">
               Stories worth keeping.
             </p>
-
-            <a className="hero-cta" href="#catalog">
-              <span>Explore the collection</span>
-              <span aria-hidden="true">→</span>
-            </a>
           </div>
         </section>
 
@@ -115,12 +110,13 @@ function App() {
           className="catalog"
           aria-labelledby="catalog-title"
         >
+          <div
+            className={`catalog-layout${
+              selectedMovieId !== null ? " has-details" : ""
+            }`}
+          >
           <div className="section-heading">
             <div>
-              <p className="eyebrow">
-                Archive index
-              </p>
-
               <h2 id="catalog-title">
                 All films
               </h2>
@@ -159,6 +155,7 @@ function App() {
             </div>
           </div>
 
+          <div className="catalog-results">
           {loadState === "loading" && (
             <div
               className="movie-grid"
@@ -209,7 +206,7 @@ function App() {
           {loadState === "success" &&
             movies.length > 0 && (
               <div className="movie-grid">
-                {movies.map((movie, index) => {
+                {movies.map((movie) => {
                   const posterUrl =
                     getMoviePoster(movie.title);
 
@@ -219,7 +216,12 @@ function App() {
                         className="movie-card-trigger"
                         type="button"
                         aria-label={`View details for ${movie.title}`}
-                        aria-haspopup="dialog"
+                        aria-expanded={selectedMovieId === movie.id}
+                        aria-controls={
+                          selectedMovieId === movie.id
+                            ? "movie-details-panel"
+                            : undefined
+                        }
                         onClick={() => setSelectedMovieId(movie.id)}
                       >
                         <div
@@ -240,24 +242,16 @@ function App() {
                             </span>
                           )}
 
-                          <span className="poster-number">
-                            {String(
-                              index + 1,
-                            ).padStart(2, "0")}
-                          </span>
-
-                          <span className="poster-year">
-                            {movie.year}
-                          </span>
                         </div>
 
                         <div className="movie-content">
                           <p>{movie.genre}</p>
                           <h3>{movie.title}</h3>
 
-                          <span>
-                            {movie.duration} minutes
-                          </span>
+                          <div className="movie-card-meta">
+                            <span>{movie.year}</span>
+                            <span>{movie.duration} min</span>
+                          </div>
                         </div>
                       </button>
                     </article>
@@ -265,33 +259,35 @@ function App() {
                 })}
               </div>
             )}
+          </div>
+
+          {selectedMovieId !== null && (
+            <MovieModal
+              movieId={selectedMovieId}
+              posterUrl={
+                selectedMovie
+                  ? getMoviePoster(selectedMovie.title)
+                  : undefined
+              }
+              onClose={() => setSelectedMovieId(null)}
+              onDeleted={(movieId) => {
+                setMovies((current) =>
+                  current.filter((movie) => movie.id !== movieId),
+                );
+                setSelectedMovieId(null);
+              }}
+              onUpdated={(updatedMovie) => {
+                setMovies((current) =>
+                  current.map((movie) =>
+                    movie.id === updatedMovie.id ? updatedMovie : movie,
+                  ),
+                );
+              }}
+            />
+          )}
+          </div>
         </section>
       </main>
-
-      {selectedMovieId !== null && (
-        <MovieModal
-          movieId={selectedMovieId}
-          posterUrl={
-            selectedMovie
-              ? getMoviePoster(selectedMovie.title)
-              : undefined
-          }
-          onClose={() => setSelectedMovieId(null)}
-          onDeleted={(movieId) => {
-            setMovies((current) =>
-              current.filter((movie) => movie.id !== movieId),
-            );
-            setSelectedMovieId(null);
-          }}
-          onUpdated={(updatedMovie) => {
-            setMovies((current) =>
-              current.map((movie) =>
-                movie.id === updatedMovie.id ? updatedMovie : movie,
-              ),
-            );
-          }}
-        />
-      )}
     </div>
   );
 }
