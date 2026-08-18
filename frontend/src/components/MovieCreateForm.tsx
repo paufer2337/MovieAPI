@@ -1,10 +1,24 @@
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type SyntheticEvent,
+} from "react";
 import { createMovie } from "../services/movieApi";
 import type { Movie, MovieInput } from "../types/movie";
 import "./MovieCreateForm.css";
 
 type MovieCreateFormProps = {
   onCreated: (movie: Movie) => void;
+  onCancel?: () => void;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
+};
+
+type MovieCreateDialogProps = {
+  onCreated: (movie: Movie) => void;
+  onCancel: () => void;
 };
 
 type FormValues = {
@@ -24,11 +38,96 @@ const emptyForm: FormValues = {
   duration: "",
 };
 
-export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
+export function MovieCreateDialog({
+  onCreated,
+  onCancel,
+}: MovieCreateDialogProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+    dialog.querySelector<HTMLInputElement>("input")?.focus();
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
+  }, []);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]',
+      ) ?? [],
+    ).filter((element) => element.offsetParent !== null);
+
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function requestClose() {
+    if (!isSubmitting) onCancel();
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="movie-create-dialog"
+      aria-labelledby="movie-create-dialog-title"
+      onCancel={(event: SyntheticEvent<HTMLDialogElement>) => {
+        event.preventDefault();
+        requestClose();
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="movie-create-dialog-header">
+        <div>
+          <p>CinematheQue administration</p>
+          <h2 id="movie-create-dialog-title">Add a film</h2>
+        </div>
+
+        <button
+          className="movie-create-dialog-close"
+          type="button"
+          aria-label="Close add film dialog"
+          disabled={isSubmitting}
+          onClick={requestClose}
+        >
+          ×
+        </button>
+      </div>
+
+      <MovieCreateForm
+        onCreated={onCreated}
+        onCancel={requestClose}
+        onSubmittingChange={setIsSubmitting}
+      />
+    </dialog>
+  );
+}
+
+export function MovieCreateForm({
+  onCreated,
+  onCancel,
+  onSubmittingChange,
+}: MovieCreateFormProps) {
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function updateField(field: FieldName, value: string) {
@@ -46,7 +145,6 @@ export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
     if (isSubmitting) return;
 
     setApiError("");
-    setSuccessMessage("");
 
     const errors = validateForm(form);
     setFieldErrors(errors);
@@ -60,13 +158,13 @@ export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
     };
 
     setIsSubmitting(true);
+    onSubmittingChange?.(true);
 
     try {
       const createdMovie = await createMovie(payload);
-      onCreated(createdMovie);
       setForm(emptyForm);
       setFieldErrors({});
-      setSuccessMessage(`“${createdMovie.title}” was added to the archive.`);
+      onCreated(createdMovie);
     } catch (error) {
       setApiError(
         error instanceof Error
@@ -75,13 +173,14 @@ export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
       );
     } finally {
       setIsSubmitting(false);
+      onSubmittingChange?.(false);
     }
   }
 
   return (
     <form className="movie-create-form" noValidate onSubmit={handleSubmit}>
       <fieldset disabled={isSubmitting}>
-        <legend>Add a film</legend>
+        <legend>Film information</legend>
 
         <div className="movie-create-fields">
           <div className="movie-create-field movie-create-field-title">
@@ -185,9 +284,21 @@ export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
             )}
           </div>
 
-          <button className="movie-create-submit" type="submit">
-            {isSubmitting ? "Saving film…" : "Add film"}
-          </button>
+          <div className="movie-create-actions">
+            {onCancel && (
+              <button
+                className="movie-create-cancel"
+                type="button"
+                onClick={onCancel}
+              >
+                Cancel
+              </button>
+            )}
+
+            <button className="movie-create-submit" type="submit">
+              {isSubmitting ? "Saving film…" : "Add film"}
+            </button>
+          </div>
         </div>
       </fieldset>
 
@@ -197,14 +308,6 @@ export function MovieCreateForm({ onCreated }: MovieCreateFormProps) {
         </p>
       )}
 
-      <p
-        className="movie-create-message movie-create-message-success"
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        {successMessage}
-      </p>
     </form>
   );
 }

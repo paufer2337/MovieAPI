@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { MovieCreateForm } from "./components/MovieCreateForm";
+import { useEffect, useRef, useState } from "react";
+import { MovieCreateDialog } from "./components/MovieCreateForm";
 import { MovieModal } from "./components/MovieModal";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
@@ -13,9 +13,13 @@ function App() {
   const [genres, setGenres] = useState<string[]>([]);
   const [selectedGenre, setSelectedGenre] = useState("");
   const [selectedMovieId, setSelectedMovieId] = useState<number | null>(null);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [creationMessage, setCreationMessage] = useState("");
   const [loadState, setLoadState] =
     useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const addFilmButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -73,6 +77,40 @@ function App() {
     (movie) => movie.id === selectedMovieId,
   );
 
+  function closeCreateDialog() {
+    setIsCreateDialogOpen(false);
+    requestAnimationFrame(() => addFilmButtonRef.current?.focus());
+  }
+
+  function handleMovieCreated(createdMovie: Movie) {
+    setMovies((current) => [
+      createdMovie,
+      ...current.filter((movie) => movie.id !== createdMovie.id),
+    ]);
+    setGenres((current) => {
+      const createdGenres = createdMovie.genre
+        .split("/")
+        .map((genre) => genre.trim())
+        .filter(Boolean);
+
+      return [...new Set([...current, ...createdGenres])].sort(
+        (first, second) => first.localeCompare(second),
+      );
+    });
+
+    if (
+      selectedGenre &&
+      !createdMovie.genre
+        .toLocaleLowerCase()
+        .includes(selectedGenre.toLocaleLowerCase())
+    ) {
+      setSelectedGenre("");
+    }
+
+    setCreationMessage(`“${createdMovie.title}” was added to the archive.`);
+    closeCreateDialog();
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -89,6 +127,18 @@ function App() {
             height={244}
           />
         </a>
+
+        <button
+          className="admin-mode-toggle"
+          type="button"
+          aria-pressed={isAdminMode}
+          onClick={() => {
+            setIsAdminMode((current) => !current);
+            setCreationMessage("");
+          }}
+        >
+          {isAdminMode ? "EXIT ADMIN MODE" : "ADMIN MODE"}
+        </button>
       </header>
 
       <main>
@@ -124,6 +174,23 @@ function App() {
             </div>
 
             <div className="catalog-controls">
+              {isAdminMode ? (
+                <button
+                  ref={addFilmButtonRef}
+                  className="add-film-button"
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setCreationMessage("");
+                    setIsCreateDialogOpen(true);
+                  }}
+                >
+                  + ADD FILM
+                </button>
+              ) : (
+                <span className="add-film-placeholder" aria-hidden="true" />
+              )}
+
               <label
                 className="genre-filter"
                 htmlFor="genre-filter"
@@ -157,34 +224,6 @@ function App() {
           </div>
 
           <div className="catalog-results">
-          <MovieCreateForm
-            onCreated={(createdMovie) => {
-              setMovies((current) => [
-                createdMovie,
-                ...current.filter((movie) => movie.id !== createdMovie.id),
-              ]);
-              setGenres((current) => {
-                const createdGenres = createdMovie.genre
-                  .split("/")
-                  .map((genre) => genre.trim())
-                  .filter(Boolean);
-
-                return [...new Set([...current, ...createdGenres])].sort(
-                  (first, second) => first.localeCompare(second),
-                );
-              });
-
-              if (
-                selectedGenre &&
-                !createdMovie.genre
-                  .toLocaleLowerCase()
-                  .includes(selectedGenre.toLocaleLowerCase())
-              ) {
-                setSelectedGenre("");
-              }
-            }}
-          />
-
           {loadState === "loading" && (
             <div
               className="movie-grid"
@@ -312,11 +351,28 @@ function App() {
                   ),
                 );
               }}
+              isAdminMode={isAdminMode}
             />
           )}
           </div>
         </section>
       </main>
+
+      <p
+        className="creation-status"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {creationMessage}
+      </p>
+
+      {isCreateDialogOpen && (
+        <MovieCreateDialog
+          onCancel={closeCreateDialog}
+          onCreated={handleMovieCreated}
+        />
+      )}
     </div>
   );
 }

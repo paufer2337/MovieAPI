@@ -25,6 +25,7 @@ type ModalTab = "details" | "cast" | "reviews";
 type MovieModalProps = {
   movieId: number;
   posterUrl?: string;
+  isAdminMode: boolean;
   onClose: () => void;
   onDeleted: (movieId: number) => void;
   onUpdated: (movie: Movie) => void;
@@ -41,6 +42,7 @@ const tabs: ModalTab[] = ["details", "cast", "reviews"];
 export function MovieModal({
   movieId,
   posterUrl,
+  isAdminMode,
   onClose,
   onDeleted,
   onUpdated,
@@ -128,6 +130,14 @@ export function MovieModal({
       deleteCancelButtonRef.current?.focus();
     }
   }, [showDeleteConfirmation]);
+
+  useEffect(() => {
+    if (!isAdminMode) {
+      setIsEditing(false);
+      setShowDeleteConfirmation(false);
+      setActionError("");
+    }
+  }, [isAdminMode]);
 
   const averageRating = useMemo(() => {
     if (!movie?.reviews.length) return null;
@@ -321,7 +331,7 @@ export function MovieModal({
           </div>
         )}
 
-        {movie && showDeleteConfirmation && (
+        {movie && isAdminMode && showDeleteConfirmation && (
           <section
             ref={confirmationRef}
             className="delete-confirmation"
@@ -361,7 +371,7 @@ export function MovieModal({
           </section>
         )}
 
-        {movie && !showDeleteConfirmation && (
+        {movie && (!showDeleteConfirmation || !isAdminMode) && (
           <div className="movie-modal-layout">
             <div className="movie-modal-poster">
               {posterUrl ? (
@@ -387,7 +397,7 @@ export function MovieModal({
                 </p>
               </header>
 
-              {isEditing && editForm ? (
+              {isAdminMode && isEditing && editForm ? (
                 <form className="movie-edit-form" onSubmit={handleSave}>
                   <div className="modal-field modal-field-wide">
                     <label htmlFor="edit-title">Title</label>
@@ -629,25 +639,27 @@ export function MovieModal({
                     )}
                   </div>
 
-                  <div className="movie-modal-actions">
-                    <button
-                      className="modal-button modal-button-secondary"
-                      type="button"
-                      onClick={beginEditing}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="modal-button modal-button-danger"
-                      type="button"
-                      onClick={() => {
-                        setActionError("");
-                        setShowDeleteConfirmation(true);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {isAdminMode && (
+                    <div className="movie-modal-actions">
+                      <button
+                        className="modal-button modal-button-secondary"
+                        type="button"
+                        onClick={beginEditing}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="modal-button modal-button-danger"
+                        type="button"
+                        onClick={() => {
+                          setActionError("");
+                          setShowDeleteConfirmation(true);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
