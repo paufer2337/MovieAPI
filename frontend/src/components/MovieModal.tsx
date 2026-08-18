@@ -18,6 +18,7 @@ import type {
   MovieInput,
   ReviewInput,
 } from "../types/movie";
+import { formatGenres } from "../utils/genres";
 import "./MovieModal.css";
 
 type ModalTab = "details" | "cast" | "reviews";
@@ -62,10 +63,12 @@ export function MovieModal({
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const confirmationRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const loadedMovieId = movie?.id;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -101,25 +104,47 @@ export function MovieModal({
     if (activeElement?.classList.contains("movie-card-trigger")) {
       previousFocusRef.current = activeElement;
     }
+  }, [movieId]);
 
-    closeButtonRef.current?.focus({ preventScroll: true });
+  useEffect(() => {
+    if (loadedMovieId === undefined) return;
 
-    if (window.matchMedia("(max-width: 1200px)").matches) {
+    const panel = panelRef.current;
+    const title = titleRef.current;
+    if (!panel || !title) return;
+
+    const siteHeader = document.querySelector<HTMLElement>(".site-header");
+    panel.style.setProperty(
+      "--movie-panel-scroll-offset",
+      `${siteHeader?.getBoundingClientRect().height ?? 0}px`,
+    );
+
+    const titleRect = title.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const viewportHeight = document.documentElement.clientHeight;
+    const visibleTop = Math.max(0, panelRect.top);
+    const visibleBottom = Math.min(viewportHeight, panelRect.bottom);
+    const isTitleVisible =
+      titleRect.top >= visibleTop && titleRect.bottom <= visibleBottom;
+
+    if (!isTitleVisible) {
       const reducedMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
 
-      panelRef.current?.scrollIntoView({
+      title.scrollIntoView({
         behavior: reducedMotion ? "auto" : "smooth",
         block: "start",
       });
     }
-  }, [movieId]);
+
+    title.focus({ preventScroll: true });
+  }, [loadedMovieId]);
 
   useEffect(
     () => () => {
       if (previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus();
+        previousFocusRef.current.focus({ preventScroll: true });
       }
     },
     [],
@@ -389,10 +414,12 @@ export function MovieModal({
             <div className="movie-modal-content">
               <header className="movie-modal-heading">
                 <p className="modal-kicker">CinematheQue archive</p>
-                <h2 id="movie-modal-title">{movie.title}</h2>
+                <h2 id="movie-modal-title" ref={titleRef} tabIndex={-1}>
+                  {movie.title}
+                </h2>
                 <p className="movie-modal-meta">
                   <span>{movie.year}</span>
-                  <span>{movie.genre.replaceAll("/", " · ")}</span>
+                  <span>{formatGenres(movie.genre)}</span>
                   <span>{movie.duration} min</span>
                 </p>
               </header>

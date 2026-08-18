@@ -4,6 +4,7 @@ import { MovieModal } from "./components/MovieModal";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
 import type { Movie } from "./types/movie";
+import { getPrimaryGenre, parseGenres } from "./utils/genres";
 import "./App.css";
 
 type LoadState = "loading" | "success" | "error";
@@ -38,10 +39,7 @@ function App() {
           const availableGenres = [
             ...new Set(
               data.flatMap((movie) =>
-                movie.genre
-                  .split("/")
-                  .map((genre) => genre.trim())
-                  .filter(Boolean),
+                parseGenres(movie.genre),
               ),
             ),
           ].sort((first, second) =>
@@ -88,10 +86,7 @@ function App() {
       ...current.filter((movie) => movie.id !== createdMovie.id),
     ]);
     setGenres((current) => {
-      const createdGenres = createdMovie.genre
-        .split("/")
-        .map((genre) => genre.trim())
-        .filter(Boolean);
+      const createdGenres = parseGenres(createdMovie.genre);
 
       return [...new Set([...current, ...createdGenres])].sort(
         (first, second) => first.localeCompare(second),
@@ -277,6 +272,8 @@ function App() {
                 {movies.map((movie) => {
                   const posterUrl =
                     getMoviePoster(movie.title);
+                  const primaryGenre = getPrimaryGenre(movie.genre);
+                  const genreDescription = `Genres: ${parseGenres(movie.genre).join(", ")}`;
 
                   return (
                     <article className="movie-card" key={movie.id}>
@@ -313,7 +310,12 @@ function App() {
                         </div>
 
                         <div className="movie-content">
-                          <p>{movie.genre}</p>
+                          <p className="movie-card-genre">
+                            <span aria-hidden="true">{primaryGenre}</span>
+                            <span className="visually-hidden">
+                              {genreDescription}
+                            </span>
+                          </p>
                           <h3>{movie.title}</h3>
 
                           <div className="movie-card-meta">

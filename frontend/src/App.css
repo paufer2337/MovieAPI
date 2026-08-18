@@ -363,6 +363,8 @@ main {
 .movie-card-trigger {
   display: block;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border: 0;
   background: transparent;
   color: inherit;
@@ -493,6 +495,7 @@ main {
 }
 
 .movie-content {
+  min-width: 0;
   padding: 0.7rem 0 0;
 }
 
@@ -514,6 +517,23 @@ main {
   letter-spacing: -0.035em;
   line-height: 1.08;
   color: var(--soft-white);
+}
+
+.movie-card-genre {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .movie-card-meta {

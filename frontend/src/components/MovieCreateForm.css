@@ -165,14 +165,106 @@
 .movie-create-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "title title"
+    "year duration"
+    "genres genres"
+    "actions actions";
   align-items: start;
   gap: 0.9rem;
 }
 
-.movie-create-field-title,
-.movie-create-fields > :nth-child(3),
-.movie-create-actions {
-  grid-column: 1 / -1;
+.movie-create-field-title {
+  grid-area: title;
+}
+
+.movie-create-field-year {
+  grid-area: year;
+}
+
+.movie-create-field-duration {
+  grid-area: duration;
+}
+
+.movie-genre-picker {
+  display: grid;
+  min-width: 0;
+  grid-area: genres;
+  gap: 0.4rem;
+}
+
+.movie-genre-picker legend {
+  margin: 0;
+  color: rgb(241 236 229 / 78%);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: normal;
+  text-transform: uppercase;
+}
+
+.movie-genre-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(216 185 139 / 38%);
+  border-radius: 0;
+  background: rgb(11 10 12 / 78%);
+  color: var(--soft-white);
+  cursor: pointer;
+  padding: 0.7rem 0.8rem;
+  text-align: left;
+}
+
+.movie-genre-trigger[aria-expanded="true"] {
+  border-color: var(--champagne);
+}
+
+.movie-genre-trigger[aria-invalid="true"] {
+  border-color: #f09b8e;
+}
+
+.movie-genre-trigger:focus-visible,
+.movie-genre-options input:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 30%);
+  outline-offset: 2px;
+}
+
+.movie-genre-options {
+  display: grid;
+  max-height: min(17rem, 40svh);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem 0.75rem;
+  overflow-y: auto;
+  border: 1px solid rgb(216 185 139 / 28%);
+  background: rgb(11 10 12 / 72%);
+  padding: 0.75rem;
+}
+
+.movie-genre-options[hidden] {
+  display: none;
+}
+
+.movie-genre-options label {
+  display: flex;
+  min-width: 0;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--warm-paper);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.movie-genre-options input {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  accent-color: var(--champagne);
 }
 
 .movie-create-field {
@@ -215,6 +307,7 @@
 }
 
 .movie-create-actions {
+  grid-area: actions;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -302,12 +395,16 @@
 
   .movie-create-fields {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "year"
+      "duration"
+      "genres"
+      "actions";
   }
 
-  .movie-create-field-title,
-  .movie-create-fields > :nth-child(3),
-  .movie-create-actions {
-    grid-column: auto;
+  .movie-genre-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .movie-create-actions {

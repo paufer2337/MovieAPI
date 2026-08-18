@@ -98,6 +98,15 @@
   line-height: 0.98;
 }
 
+.movie-modal-heading h2 {
+  scroll-margin-top: calc(var(--movie-panel-scroll-offset, 0px) + 1rem);
+}
+
+.movie-modal-heading h2:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 40%);
+  outline-offset: 0.35rem;
+}
+
 .movie-modal-meta {
   display: flex;
   flex-wrap: wrap;

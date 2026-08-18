@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createMovie } from "../services/movieApi";
 import type { Movie, MovieInput } from "../types/movie";
+import { CANONICAL_GENRES, serializeGenres } from "../utils/genres";
 import "./MovieCreateForm.css";
 
 type MovieCreateFormProps = {
@@ -24,17 +25,18 @@ type MovieCreateDialogProps = {
 type FormValues = {
   title: string;
   year: string;
-  genre: string;
+  genres: string[];
   duration: string;
 };
 
 type FieldName = keyof FormValues;
+type TextFieldName = Exclude<FieldName, "genres">;
 type FieldErrors = Partial<Record<FieldName, string>>;
 
 const emptyForm: FormValues = {
   title: "",
   year: "",
-  genre: "",
+  genres: [],
   duration: "",
 };
 
@@ -129,13 +131,39 @@ export function MovieCreateForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenreMenuOpen, setIsGenreMenuOpen] = useState(false);
+  const genreButtonRef = useRef<HTMLButtonElement>(null);
 
-  function updateField(field: FieldName, value: string) {
+  function updateField(field: TextFieldName, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => {
       if (!current[field]) return current;
       const next = { ...current };
       delete next[field];
+      return next;
+    });
+  }
+
+  function toggleGenre(genre: string) {
+    setForm((current) => {
+      const isSelected = current.genres.some(
+        (selected) => selected.toLocaleLowerCase() === genre.toLocaleLowerCase(),
+      );
+
+      return {
+        ...current,
+        genres: isSelected
+          ? current.genres.filter(
+              (selected) =>
+                selected.toLocaleLowerCase() !== genre.toLocaleLowerCase(),
+            )
+          : [...current.genres, genre],
+      };
+    });
+    setFieldErrors((current) => {
+      if (!current.genres) return current;
+      const next = { ...current };
+      delete next.genres;
       return next;
     });
   }
@@ -148,12 +176,18 @@ export function MovieCreateForm({
 
     const errors = validateForm(form);
     setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (errors.genres) {
+        setIsGenreMenuOpen(true);
+        genreButtonRef.current?.focus({ preventScroll: true });
+      }
+      return;
+    }
 
     const payload: MovieInput = {
       title: form.title.trim(),
       year: Number(form.year),
-      genre: form.genre.trim(),
+      genre: serializeGenres(form.genres),
       duration: Number(form.duration),
     };
 
@@ -207,7 +241,7 @@ export function MovieCreateForm({
             )}
           </div>
 
-          <div className="movie-create-field">
+          <div className="movie-create-field movie-create-field-year">
             <label htmlFor="create-movie-year">Year</label>
             <input
               id="create-movie-year"
@@ -232,29 +266,67 @@ export function MovieCreateForm({
             )}
           </div>
 
-          <div className="movie-create-field">
-            <label htmlFor="create-movie-genre">Genre</label>
-            <input
-              id="create-movie-genre"
-              name="genre"
-              type="text"
-              value={form.genre}
-              autoComplete="off"
-              required
-              aria-invalid={Boolean(fieldErrors.genre)}
-              aria-describedby={
-                fieldErrors.genre ? "create-movie-genre-error" : undefined
+          <fieldset
+            className="movie-genre-picker"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && isGenreMenuOpen) {
+                event.preventDefault();
+                setIsGenreMenuOpen(false);
+                genreButtonRef.current?.focus({ preventScroll: true });
               }
-              onChange={(event) => updateField("genre", event.target.value)}
-            />
-            {fieldErrors.genre && (
-              <span id="create-movie-genre-error" className="movie-create-error">
-                {fieldErrors.genre}
+            }}
+          >
+            <legend id="create-movie-genres-label">Genres</legend>
+            <button
+              ref={genreButtonRef}
+              className="movie-genre-trigger"
+              type="button"
+              aria-expanded={isGenreMenuOpen}
+              aria-controls="create-movie-genre-options"
+              aria-invalid={Boolean(fieldErrors.genres)}
+              aria-labelledby="create-movie-genres-label create-movie-genres-summary"
+              aria-describedby={
+                fieldErrors.genres ? "create-movie-genres-error" : undefined
+              }
+              onClick={() => setIsGenreMenuOpen((current) => !current)}
+            >
+              <span id="create-movie-genres-summary">
+                {form.genres.length === 0
+                  ? "Select genres"
+                  : `${form.genres.length} ${
+                      form.genres.length === 1 ? "genre" : "genres"
+                    } selected`}
+              </span>
+              <span aria-hidden="true">▾</span>
+            </button>
+
+            <div
+              id="create-movie-genre-options"
+              className="movie-genre-options"
+              hidden={!isGenreMenuOpen}
+            >
+              {CANONICAL_GENRES.map((genre) => (
+                <label key={genre}>
+                  <input
+                    type="checkbox"
+                    name="genres"
+                    value={genre}
+                    checked={form.genres.includes(genre)}
+                    onChange={() => toggleGenre(genre)}
+                  />
+                  <span>{genre}</span>
+                </label>
+              ))}
+            </div>
+
+            {fieldErrors.genres && (
+              <span id="create-movie-genres-error" className="movie-create-error">
+                {fieldErrors.genres}
               </span>
             )}
-          </div>
+          </fieldset>
 
-          <div className="movie-create-field">
+          <div className="movie-create-field movie-create-field-duration">
             <label htmlFor="create-movie-duration">Duration (minutes)</label>
             <input
               id="create-movie-duration"
@@ -315,7 +387,6 @@ export function MovieCreateForm({
 function validateForm(form: FormValues): FieldErrors {
   const errors: FieldErrors = {};
   const title = form.title.trim();
-  const genre = form.genre.trim();
   const year = Number(form.year);
   const duration = Number(form.duration);
 
@@ -327,8 +398,8 @@ function validateForm(form: FormValues): FieldErrors {
     errors.year = "Year must be a whole number between 1888 and 2100.";
   }
 
-  if (!genre) {
-    errors.genre = "Genre is required.";
+  if (form.genres.length === 0) {
+    errors.genres = "Select at least one genre.";
   }
 
   if (
