@@ -604,6 +604,35 @@ main {
   color: var(--champagne);
 }
 
+.route-message-page {
+  display: grid;
+  width: min(100% - 3rem, 50rem);
+  min-height: calc(100dvh - 12rem);
+  align-content: center;
+  gap: 1rem;
+  margin: 0 auto;
+  color: var(--warm-paper);
+}
+
+.route-message-page h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.5rem, 8vw, 6rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+}
+
+.route-message-page p {
+  margin: 0;
+  color: var(--steel);
+  line-height: 1.6;
+}
+
+.route-message-page a {
+  width: fit-content;
+  color: var(--champagne);
+}
+
 /* Keyboard accessibility */
 
 a:focus-visible,

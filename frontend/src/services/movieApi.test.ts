@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMovie, getMovies } from "./movieApi";
-import { makeMovie } from "../test/fixtures";
+import {
+  createMovie,
+  getMovieDetails,
+  getMovies,
+  MovieApiError,
+} from "./movieApi";
+import { makeMovie, makeMovieDetail } from "../test/fixtures";
 
 type FetchImplementation = (
   input: RequestInfo | URL,
@@ -151,6 +156,33 @@ describe("movie API client", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
+  });
+
+  it("loads one movie detail route with the provided AbortSignal", async () => {
+    const detail = makeMovieDetail({ id: 18 });
+    const controller = new AbortController();
+    const fetchMock = stubFetch(async () => jsonResponse(detail));
+
+    await expect(getMovieDetails(18, controller.signal)).resolves.toEqual(detail);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies/18/details",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({ signal: controller.signal });
+  });
+
+  it("preserves the response status on API errors", async () => {
+    stubFetch(async () => jsonResponse({ title: "Movie not found." }, 404));
+
+    const request = getMovieDetails(999);
+
+    await expect(request).rejects.toEqual(
+      expect.objectContaining<MovieApiError>({
+        name: "MovieApiError",
+        message: "Movie not found.",
+        status: 404,
+      }),
+    );
   });
 });
 

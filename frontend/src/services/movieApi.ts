@@ -17,6 +17,16 @@ type GetMoviesOptions = {
   signal?: AbortSignal;
 };
 
+export class MovieApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "MovieApiError";
+    this.status = status;
+  }
+}
+
 export async function getMovies(
   options: GetMoviesOptions = {},
 ): Promise<Movie[]> {
@@ -218,10 +228,14 @@ async function createApiError(
       ? Object.values(body.errors).flat().join(" ")
       : undefined;
 
-    return new Error(
+    return new MovieApiError(
       validationMessage || body.title || `${fallbackMessage} (${response.status}).`,
+      response.status,
     );
   } catch {
-    return new Error(`${fallbackMessage} (${response.status}).`);
+    return new MovieApiError(
+      `${fallbackMessage} (${response.status}).`,
+      response.status,
+    );
   }
 }

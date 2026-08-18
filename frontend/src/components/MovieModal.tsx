@@ -6,14 +6,16 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getMoviePoster } from "../data/moviePosters";
 import {
   createReview,
   deleteMovie,
   getMovieDetails,
+  MovieApiError,
   updateMovie,
 } from "../services/movieApi";
 import type {
-  Movie,
   MovieDetail,
   MovieInput,
   ReviewInput,
@@ -23,13 +25,9 @@ import "./MovieModal.css";
 
 type ModalTab = "details" | "cast" | "reviews";
 
-type MovieModalProps = {
+type MovieDetailsPageProps = {
   movieId: number;
-  posterUrl?: string;
   isAdminMode: boolean;
-  onClose: () => void;
-  onDeleted: (movieId: number) => void;
-  onUpdated: (movie: Movie) => void;
 };
 
 const emptyReview: ReviewInput = {
@@ -40,19 +38,17 @@ const emptyReview: ReviewInput = {
 
 const tabs: ModalTab[] = ["details", "cast", "reviews"];
 
-export function MovieModal({
+export function MovieDetailsPage({
   movieId,
-  posterUrl,
   isAdminMode,
-  onClose,
-  onDeleted,
-  onUpdated,
-}: MovieModalProps) {
+}: MovieDetailsPageProps) {
+  const navigate = useNavigate();
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
     "loading",
   );
   const [loadError, setLoadError] = useState("");
+  const [isNotFound, setIsNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<ModalTab>("details");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<MovieInput | null>(null);
@@ -62,19 +58,16 @@ export function MovieModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const panelRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const confirmationRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const loadedMovieId = movie?.id;
 
   useEffect(() => {
     const controller = new AbortController();
     setMovie(null);
     setLoadState("loading");
     setLoadError("");
+    setIsNotFound(false);
     setActiveTab("details");
     setIsEditing(false);
     setShowDeleteConfirmation(false);
@@ -90,6 +83,7 @@ export function MovieModal({
           return;
         }
 
+        setIsNotFound(error instanceof MovieApiError && error.status === 404);
         setLoadError(
           error instanceof Error ? error.message : "Could not open this film.",
         );
@@ -100,55 +94,16 @@ export function MovieModal({
   }, [movieId]);
 
   useEffect(() => {
-    const activeElement = document.activeElement as HTMLElement | null;
-    if (activeElement?.classList.contains("movie-card-trigger")) {
-      previousFocusRef.current = activeElement;
-    }
-  }, [movieId]);
+    document.title = movie
+      ? `${movie.title} | CinematheQue`
+      : isNotFound
+        ? "Film not found | CinematheQue"
+        : "Movie details | CinematheQue";
+  }, [isNotFound, movie]);
 
   useEffect(() => {
-    if (loadedMovieId === undefined) return;
-
-    const panel = panelRef.current;
-    const title = titleRef.current;
-    if (!panel || !title) return;
-
-    const siteHeader = document.querySelector<HTMLElement>(".site-header");
-    panel.style.setProperty(
-      "--movie-panel-scroll-offset",
-      `${siteHeader?.getBoundingClientRect().height ?? 0}px`,
-    );
-
-    const titleRect = title.getBoundingClientRect();
-    const panelRect = panel.getBoundingClientRect();
-    const viewportHeight = document.documentElement.clientHeight;
-    const visibleTop = Math.max(0, panelRect.top);
-    const visibleBottom = Math.min(viewportHeight, panelRect.bottom);
-    const isTitleVisible =
-      titleRect.top >= visibleTop && titleRect.bottom <= visibleBottom;
-
-    if (!isTitleVisible) {
-      const reducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-
-      title.scrollIntoView({
-        behavior: reducedMotion ? "auto" : "smooth",
-        block: "start",
-      });
-    }
-
-    title.focus({ preventScroll: true });
-  }, [loadedMovieId]);
-
-  useEffect(
-    () => () => {
-      if (previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus({ preventScroll: true });
-      }
-    },
-    [],
-  );
+    titleRef.current?.focus({ preventScroll: true });
+  }, [loadState]);
 
   useEffect(() => {
     if (showDeleteConfirmation) {
@@ -170,8 +125,6 @@ export function MovieModal({
     return (total / movie.reviews.length).toFixed(1);
   }, [movie?.reviews]);
 
-  const isBusy = isSaving || isDeleting || isSubmittingReview;
-
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -183,8 +136,6 @@ export function MovieModal({
       } else if (isEditing) {
         setIsEditing(false);
         setActionError("");
-      } else {
-        onClose();
       }
       return;
     }
@@ -260,9 +211,7 @@ export function MovieModal({
 
     try {
       await updateMovie(movie.id, payload);
-      const updatedMovie: Movie = { id: movie.id, ...payload };
       setMovie((current) => (current ? { ...current, ...payload } : current));
-      onUpdated(updatedMovie);
       setIsEditing(false);
     } catch (error) {
       setActionError(
@@ -280,7 +229,7 @@ export function MovieModal({
 
     try {
       await deleteMovie(movieId);
-      onDeleted(movieId);
+      navigate("/", { replace: true });
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Could not delete the film.",
@@ -323,35 +272,38 @@ export function MovieModal({
     }
   }
 
+  const posterUrl = movie ? getMoviePoster(movie.title) : undefined;
+
   return (
-      <aside
+    <main className="movie-detail-route">
+      <Link className="movie-detail-back" to="/">
+        ← Back to the catalog
+      </Link>
+
+      <article
         id="movie-details-panel"
-        ref={panelRef}
         className="movie-details-panel"
         aria-labelledby={movie ? "movie-modal-title" : undefined}
         aria-label={!movie ? "Movie details" : undefined}
         onKeyDown={handlePanelKeyDown}
       >
-        <button
-          ref={closeButtonRef}
-          className="movie-modal-close"
-          type="button"
-          aria-label="Close movie details"
-          onClick={onClose}
-          disabled={isBusy}
-        >
-          ×
-        </button>
-
         {loadState === "loading" && (
           <div className="movie-modal-status" role="status">
-            Loading film details…
+            <h1 ref={titleRef} tabIndex={-1}>Movie details</h1>
+            <span>Loading film details…</span>
           </div>
         )}
 
         {loadState === "error" && (
           <div className="movie-modal-status" role="alert">
-            <strong>The film details could not be opened.</strong>
+            <h1 ref={titleRef} tabIndex={-1}>
+              {isNotFound ? "Film not found" : "Movie details"}
+            </h1>
+            <strong>
+              {isNotFound
+                ? "This film does not exist in the archive."
+                : "The film details could not be opened."}
+            </strong>
             <span>{loadError}</span>
           </div>
         )}
@@ -414,9 +366,9 @@ export function MovieModal({
             <div className="movie-modal-content">
               <header className="movie-modal-heading">
                 <p className="modal-kicker">CinematheQue archive</p>
-                <h2 id="movie-modal-title" ref={titleRef} tabIndex={-1}>
+                <h1 id="movie-modal-title" ref={titleRef} tabIndex={-1}>
                   {movie.title}
-                </h2>
+                </h1>
                 <p className="movie-modal-meta">
                   <span>{movie.year}</span>
                   <span>{formatGenres(movie.genre)}</span>
@@ -600,7 +552,7 @@ export function MovieModal({
                         )}
 
                         <form className="review-form" onSubmit={handleReviewSubmit}>
-                          <h3>Leave a review</h3>
+                          <h2>Leave a review</h2>
                           <div className="modal-field">
                             <label htmlFor="reviewer-name">Reviewer</label>
                             <input
@@ -692,7 +644,8 @@ export function MovieModal({
             </div>
           </div>
         )}
-      </aside>
+      </article>
+    </main>
   );
 }
 
