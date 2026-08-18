@@ -34,6 +34,20 @@ export async function getMovies(
   return response.json() as Promise<Movie[]>;
 }
 
+export async function createMovie(movie: MovieInput): Promise<Movie> {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(movie),
+  });
+
+  if (!response.ok) {
+    throw await createApiError(response, "Could not create the movie");
+  }
+
+  return response.json() as Promise<Movie>;
+}
+
 export async function getMovieDetails(
   movieId: number,
   signal?: AbortSignal,

@@ -1,0 +1,133 @@
+.movie-create-form {
+  margin-bottom: clamp(1.25rem, 2vw, 1.75rem);
+  border: 1px solid rgb(216 185 139 / 30%);
+  background: rgb(33 26 24 / 72%);
+  padding: clamp(1rem, 2vw, 1.4rem);
+}
+
+.movie-create-form fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.movie-create-form legend {
+  margin-bottom: 1rem;
+  color: var(--warm-paper);
+  font-family: var(--serif);
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  line-height: 1;
+}
+
+.movie-create-fields {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.6fr) repeat(3, minmax(8rem, 1fr)) auto;
+  align-items: start;
+  gap: 0.9rem;
+}
+
+.movie-create-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.movie-create-field label {
+  color: rgb(241 236 229 / 78%);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.movie-create-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgb(216 185 139 / 38%);
+  border-radius: 0;
+  background: rgb(11 10 12 / 78%);
+  color: var(--soft-white);
+  padding: 0.7rem 0.8rem;
+}
+
+.movie-create-field input:focus-visible {
+  border-color: var(--champagne);
+  outline: 3px solid rgb(216 185 139 / 30%);
+  outline-offset: 2px;
+}
+
+.movie-create-field input[aria-invalid="true"] {
+  border-color: #f09b8e;
+}
+
+.movie-create-error {
+  color: #ffc0b5;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.movie-create-submit {
+  min-height: 2.75rem;
+  align-self: end;
+  border: 1px solid var(--champagne);
+  background: var(--champagne);
+  color: var(--obsidian);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.7rem 1.2rem;
+  text-transform: uppercase;
+}
+
+.movie-create-submit:hover:not(:disabled) {
+  background: var(--soft-white);
+}
+
+.movie-create-submit:focus-visible {
+  outline: 3px solid rgb(216 185 139 / 40%);
+  outline-offset: 3px;
+}
+
+.movie-create-form fieldset:disabled {
+  opacity: 0.72;
+}
+
+.movie-create-submit:disabled {
+  cursor: wait;
+}
+
+.movie-create-message {
+  min-height: 1.3rem;
+  margin: 0.8rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.movie-create-message-error {
+  color: #ffc0b5;
+}
+
+.movie-create-message-success {
+  color: #c9e8d5;
+}
+
+@media (max-width: 1200px) {
+  .movie-create-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .movie-create-submit {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 600px) {
+  .movie-create-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .movie-create-submit {
+    width: 100%;
+  }
+}

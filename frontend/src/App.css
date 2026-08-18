@@ -174,7 +174,7 @@ main {
   position: relative;
   display: grid;
   width: 100%;
-  min-height: clamp(19rem, 38svh, 24rem);
+  min-height: clamp(19rem, 21vw, 25rem);
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
   margin: 0;
@@ -183,12 +183,14 @@ main {
   background:
     linear-gradient(
       90deg,
-      rgb(11 10 12 / 54%) 0%,
-      rgb(11 10 12 / 24%) 48%,
-      rgb(11 10 12 / 6%) 100%
+      rgb(8 7 9 / 82%) 0%,
+      rgb(8 7 9 / 66%) 22%,
+      rgb(8 7 9 / 24%) 42%,
+      transparent 62%
     ),
-    linear-gradient(0deg, rgb(11 10 12 / 42%) 0%, transparent 52%),
-    url("/images/infinite-archive-hero.webp") center / cover no-repeat;
+    linear-gradient(0deg, rgb(11 10 12 / 28%) 0%, transparent 45%),
+    url("/images/infinite-archive-hero-panorama.webp") center center / cover
+      no-repeat;
   color: var(--warm-paper);
   isolation: isolate;
   overflow: hidden;
@@ -198,6 +200,9 @@ main {
   position: relative;
   z-index: 1;
   max-width: 680px;
+  text-shadow:
+    0 2px 12px rgb(0 0 0 / 90%),
+    0 0 32px rgb(0 0 0 / 72%);
 }
 
 .eyebrow {
@@ -647,6 +652,16 @@ input:focus-visible {
     grid-template-columns: 1fr;
     align-content: end;
     padding: 2.5rem 1.5rem;
+    background-image:
+      linear-gradient(
+        90deg,
+        rgb(8 7 9 / 82%) 0%,
+        rgb(8 7 9 / 66%) 22%,
+        rgb(8 7 9 / 24%) 42%,
+        transparent 62%
+      ),
+      linear-gradient(0deg, rgb(11 10 12 / 28%) 0%, transparent 45%),
+      url("/images/infinite-archive-hero.webp");
     background-position: 60% center;
   }
 

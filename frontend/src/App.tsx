@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MovieCreateForm } from "./components/MovieCreateForm";
 import { MovieModal } from "./components/MovieModal";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
@@ -156,6 +157,34 @@ function App() {
           </div>
 
           <div className="catalog-results">
+          <MovieCreateForm
+            onCreated={(createdMovie) => {
+              setMovies((current) => [
+                createdMovie,
+                ...current.filter((movie) => movie.id !== createdMovie.id),
+              ]);
+              setGenres((current) => {
+                const createdGenres = createdMovie.genre
+                  .split("/")
+                  .map((genre) => genre.trim())
+                  .filter(Boolean);
+
+                return [...new Set([...current, ...createdGenres])].sort(
+                  (first, second) => first.localeCompare(second),
+                );
+              });
+
+              if (
+                selectedGenre &&
+                !createdMovie.genre
+                  .toLocaleLowerCase()
+                  .includes(selectedGenre.toLocaleLowerCase())
+              ) {
+                setSelectedGenre("");
+              }
+            }}
+          />
+
           {loadState === "loading" && (
             <div
               className="movie-grid"
