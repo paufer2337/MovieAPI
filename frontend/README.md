@@ -1,5 +1,18 @@
 # React + TypeScript + Vite
 
+## Movie API configuration
+
+Copy `.env.example` to `.env.local` for local development and set
+`VITE_API_URL` to the full movies endpoint:
+
+```dotenv
+VITE_API_URL=http://localhost:5000/api/Movies
+```
+
+Local development falls back to the URL above when the variable is absent.
+Production deployments must always provide an explicit `VITE_API_URL`; they do
+not fall back to localhost.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:
