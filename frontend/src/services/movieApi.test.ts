@@ -54,6 +54,23 @@ describe("movie API client", () => {
     expect(receivedSignals).toEqual([controller.signal, controller.signal]);
   });
 
+  it("sends search and genre filters on every catalog page request", async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) =>
+      makeMovie({ id: index + 1 }),
+    );
+    const fetchMock = stubFetch(async (input) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      return jsonResponse(page === 1 ? firstPage : []);
+    });
+
+    await getMovies({ genre: "Fantasy", search: "castle" });
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "https://movies.example.test/api/Movies?page=1&pageSize=50&genre=Fantasy&search=castle",
+      "https://movies.example.test/api/Movies?page=2&pageSize=50&genre=Fantasy&search=castle",
+    ]);
+  });
+
   it("requests one empty terminal page when the catalog is exactly full", async () => {
     const movies = Array.from({ length: 50 }, (_, index) =>
       makeMovie({ id: index + 1 }),

@@ -14,6 +14,7 @@ type MoviePageResponse = Movie[];
 
 type GetMoviesOptions = {
   genre?: string;
+  search?: string;
   signal?: AbortSignal;
 };
 
@@ -39,6 +40,10 @@ export async function getMovies(
 
     if (options.genre) {
       url.searchParams.set("genre", options.genre);
+    }
+
+    if (options.search) {
+      url.searchParams.set("search", options.search);
     }
 
     const response = await fetch(url, {

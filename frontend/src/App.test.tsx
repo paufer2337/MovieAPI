@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MovieApiError } from "./services/movieApi";
@@ -298,6 +298,106 @@ describe("App routing and movie details", () => {
   });
 });
 
+describe("Catalog URL filters", () => {
+  beforeEach(resetApiMocks);
+
+  it("restores search and genre from the URL across back and forward navigation", async () => {
+    const { router } = renderApp("/?search=castle&genre=Fantasy");
+
+    expect(screen.getByRole("searchbox", { name: "Search films" })).toHaveValue(
+      "castle",
+    );
+    expect(screen.getByRole("combobox", { name: "Filter by genre" })).toHaveValue(
+      "Fantasy",
+    );
+    expect(apiMocks.getMovies).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
+      genre: "Fantasy",
+      search: "castle",
+    });
+
+    await act(() => router.navigate("/?search=spirit&genre=Anime"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("searchbox", { name: "Search films" })).toHaveValue(
+        "spirit",
+      );
+      expect(screen.getByRole("combobox", { name: "Filter by genre" })).toHaveValue(
+        "Anime",
+      );
+    });
+
+    await act(() => router.navigate(-1));
+
+    await waitFor(() => {
+      expect(screen.getByRole("searchbox", { name: "Search films" })).toHaveValue(
+        "castle",
+      );
+      expect(screen.getByRole("combobox", { name: "Filter by genre" })).toHaveValue(
+        "Fantasy",
+      );
+    });
+
+    await act(() => router.navigate(1));
+
+    await waitFor(() => {
+      expect(screen.getByRole("searchbox", { name: "Search films" })).toHaveValue(
+        "spirit",
+      );
+      expect(screen.getByRole("combobox", { name: "Filter by genre" })).toHaveValue(
+        "Anime",
+      );
+    });
+  });
+
+  it("debounces search URL updates by 300 ms and preserves other parameters", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const { router } = renderApp("/?source=archive");
+      apiMocks.getMovies.mockClear();
+
+      fireEvent.change(screen.getByRole("searchbox", { name: "Search films" }), {
+        target: { value: "matrix" },
+      });
+
+      await act(() => vi.advanceTimersByTime(299));
+      expect(new URLSearchParams(router.state.location.search).get("search")).toBeNull();
+      expect(apiMocks.getMovies).not.toHaveBeenCalled();
+
+      await act(() => vi.advanceTimersByTime(1));
+
+      const currentParams = new URLSearchParams(router.state.location.search);
+      expect(currentParams.get("search")).toBe("matrix");
+      expect(currentParams.get("source")).toBe("archive");
+      expect(apiMocks.getMovies).toHaveBeenCalledWith({
+        signal: expect.any(AbortSignal),
+        genre: undefined,
+        search: "matrix",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts the previous catalog request when URL filters change", async () => {
+    apiMocks.getMovies.mockImplementation(() => new Promise(() => {}));
+    const { router } = renderApp();
+    await waitFor(() => expect(apiMocks.getMovies).toHaveBeenCalledOnce());
+    const firstSignal = apiMocks.getMovies.mock.calls[0][0].signal as AbortSignal;
+
+    await act(() => router.navigate("/?genre=Fantasy"));
+
+    expect(firstSignal.aborted).toBe(true);
+    expect(apiMocks.getMovies).toHaveBeenCalledTimes(2);
+    expect(apiMocks.getMovies.mock.calls[1][0]).toEqual({
+      signal: expect.any(AbortSignal),
+      genre: "Fantasy",
+      search: undefined,
+    });
+  });
+});
+
 function resetApiMocks() {
   for (const apiMock of Object.values(apiMocks)) apiMock.mockReset();
   apiMocks.getMovies.mockResolvedValue([catalogMovie]);
@@ -305,11 +405,12 @@ function resetApiMocks() {
 }
 
 function renderApp(initialEntry = "/") {
-  return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <App />
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [{ path: "*", element: <App /> }],
+    { initialEntries: [initialEntry] },
   );
+
+  return { ...render(<RouterProvider router={router} />), router };
 }
 
 async function findMovieLink() {

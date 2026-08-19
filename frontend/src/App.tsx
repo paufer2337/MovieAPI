@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Link, Route, Routes, useParams } from "react-router-dom";
+import {
+  Link,
+  Route,
+  Routes,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { MovieCreateDialog } from "./components/MovieCreateForm";
 import { MovieDetailsPage } from "./components/MovieModal";
 import { getMoviePoster } from "./data/moviePosters";
@@ -9,6 +15,7 @@ import { getPrimaryGenre, parseGenres } from "./utils/genres";
 import "./App.css";
 
 type LoadState = "loading" | "success" | "error";
+const SEARCH_DEBOUNCE_MS = 300;
 
 function App() {
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -49,9 +56,12 @@ function App() {
 }
 
 function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get("search")?.trim() ?? "";
+  const selectedGenre = searchParams.get("genre")?.trim() ?? "";
   const [movies, setMovies] = useState<Movie[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState("");
+  const [searchDraft, setSearchDraft] = useState(searchQuery);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creationMessage, setCreationMessage] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -59,14 +69,40 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
   const pageHeadingRef = useRef<HTMLHeadingElement>(null);
   const addFilmButtonRef = useRef<HTMLButtonElement>(null);
 
-  usePageMetadata("The Infinite Archive | CinematheQue", pageHeadingRef);
+  usePageMetadata("The Selective Archive | CinematheQue", pageHeadingRef);
+
+  useEffect(() => {
+    setSearchDraft(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const normalizedSearch = searchDraft.trim();
+    if (normalizedSearch === searchQuery) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+
+        if (normalizedSearch) nextParams.set("search", normalizedSearch);
+        else nextParams.delete("search");
+
+        return nextParams;
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchDraft, searchQuery, setSearchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoadState("loading");
     setErrorMessage("");
 
-    getMovies({ signal: controller.signal, genre: selectedGenre || undefined })
+    getMovies({
+      signal: controller.signal,
+      genre: selectedGenre || undefined,
+      search: searchQuery || undefined,
+    })
       .then((data) => {
         setMovies(data);
 
@@ -90,7 +126,7 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
       });
 
     return () => controller.abort();
-  }, [selectedGenre]);
+  }, [searchQuery, selectedGenre]);
 
   useEffect(() => {
     if (!isAdminMode && isCreateDialogOpen) setIsCreateDialogOpen(false);
@@ -118,7 +154,11 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
         (genre) => genre.toLocaleLowerCase() === selectedGenre.toLocaleLowerCase(),
       )
     ) {
-      setSelectedGenre("");
+      setSearchParams((currentParams) => {
+        const nextParams = new URLSearchParams(currentParams);
+        nextParams.delete("genre");
+        return nextParams;
+      });
     }
 
     setCreationMessage(`“${createdMovie.title}” was added to the archive.`);
@@ -131,7 +171,9 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
         <section className="hero">
           <div className="hero-copy">
             <h1 ref={pageHeadingRef} tabIndex={-1}>
-              The infinite
+              The
+              <br />
+              selective
               <br />
               archive
             </h1>
@@ -158,18 +200,43 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
                   >
                     + ADD FILM
                   </button>
-                ) : (
-                  <span className="add-film-placeholder" aria-hidden="true" />
-                )}
+                ) : null}
+
+                <label className="search-filter" htmlFor="movie-search">
+                  <span>Search films</span>
+                  <input
+                    id="movie-search"
+                    type="search"
+                    value={searchDraft}
+                    onChange={(event) => setSearchDraft(event.target.value)}
+                    placeholder="Search by title"
+                  />
+                </label>
 
                 <label className="genre-filter" htmlFor="genre-filter">
                   <span>Filter by genre</span>
                   <select
                     id="genre-filter"
                     value={selectedGenre}
-                    onChange={(event) => setSelectedGenre(event.target.value)}
+                    onChange={(event) => {
+                      const nextGenre = event.target.value;
+                      setSearchParams((currentParams) => {
+                        const nextParams = new URLSearchParams(currentParams);
+
+                        if (nextGenre) nextParams.set("genre", nextGenre);
+                        else nextParams.delete("genre");
+
+                        return nextParams;
+                      });
+                    }}
                   >
                     <option value="">All genres</option>
+                    {selectedGenre &&
+                      !genres.some(
+                        (genre) =>
+                          genre.toLocaleLowerCase() ===
+                          selectedGenre.toLocaleLowerCase(),
+                      ) && <option value={selectedGenre}>{selectedGenre}</option>}
                     {genres.map((genre) => (
                       <option key={genre} value={genre}>{genre}</option>
                     ))}
@@ -196,10 +263,14 @@ function CatalogPage({ isAdminMode }: { isAdminMode: boolean }) {
 
               {loadState === "success" && movies.length === 0 && (
                 <div className="message">
-                  <strong>{selectedGenre ? "No films found." : "The archive is empty."}</strong>
+                  <strong>
+                    {searchQuery || selectedGenre
+                      ? "No films found."
+                      : "The archive is empty."}
+                  </strong>
                   <span>
-                    {selectedGenre
-                      ? "Try selecting another genre."
+                    {searchQuery || selectedGenre
+                      ? "Try changing your search or genre."
                       : "Add the first movie to begin the collection."}
                   </span>
                 </div>

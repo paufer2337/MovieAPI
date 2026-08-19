@@ -875,15 +875,22 @@ input:focus-visible {
   color: var(--warm-paper);
 }
 
-/* Genre filter */
+/* Catalog filters */
 
 .catalog-controls {
-  display: grid;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
   align-self: end;
-  justify-items: stretch;
+  justify-content: flex-end;
   gap: 0.85rem;
 }
 
+.search-filter {
+  flex: 1 1 280px;
+}
+
+.search-filter,
 .genre-filter {
   display: grid;
   min-width: 220px;
@@ -896,18 +903,32 @@ input:focus-visible {
   text-transform: uppercase;
 }
 
+.search-filter input,
 .genre-filter select {
   width: 100%;
   border: 1px solid rgb(216 185 139 / 58%);
   border-radius: 0;
   background: var(--archive-black);
   color: var(--warm-paper);
-  padding: 0.8rem 2.5rem 0.8rem 0.9rem;
+  padding: 0.8rem 0.9rem;
   font: inherit;
   text-transform: none;
+}
+
+.search-filter input {
+  appearance: none;
+}
+
+.search-filter input::placeholder {
+  color: var(--steel);
+}
+
+.genre-filter select {
+  padding-right: 2.5rem;
   cursor: pointer;
 }
 
+.search-filter input:focus-visible,
 .genre-filter select:focus-visible {
   outline: 3px solid var(--champagne);
   outline-offset: 3px;
@@ -916,10 +937,17 @@ input:focus-visible {
 @media (max-width: 760px) {
   .catalog-controls {
     width: 100%;
-    justify-items: stretch;
   }
 
+  .search-filter,
   .genre-filter {
     min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .catalog-controls {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
