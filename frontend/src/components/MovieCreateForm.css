@@ -18,7 +18,7 @@
   text-transform: uppercase;
 }
 
-.admin-mode-toggle[aria-pressed="true"],
+.admin-mode-toggle.admin-session-active,
 .add-film-button {
   background: var(--champagne);
   color: var(--obsidian);
@@ -73,6 +73,25 @@
   color: #dff4e7;
   padding: 0.8rem 1rem;
   box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 32%);
+}
+
+.auth-status {
+  position: fixed;
+  z-index: 35;
+  top: 4.25rem;
+  right: 1rem;
+  max-width: min(28rem, calc(100% - 2rem));
+  margin: 0;
+  border: 1px solid rgb(216 185 139 / 42%);
+  background: var(--archive-black);
+  color: var(--warm-paper);
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 32%);
+  font-size: 0.82rem;
+}
+
+.auth-status:empty {
+  display: none;
 }
 
 .creation-status:empty {

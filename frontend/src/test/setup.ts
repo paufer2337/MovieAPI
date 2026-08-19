@@ -6,6 +6,7 @@ installDialogShim();
 installMissingBrowserApiShims();
 
 beforeEach(() => {
+  localStorage.clear();
   vi.stubGlobal(
     "fetch",
     vi.fn(() =>

@@ -8,8 +8,17 @@ import {
 } from "react-router-dom";
 import { MovieCreateDialog } from "./components/MovieCreateForm";
 import { MovieDetailsPage } from "./components/MovieModal";
+import { AdminLoginDialog } from "./components/AdminLoginDialog";
 import { getMoviePoster } from "./data/moviePosters";
 import { getMovies } from "./services/movieApi";
+import {
+  AUTH_SESSION_INVALIDATED_EVENT,
+  clearAuthSession,
+  getStoredAuthSession,
+  invalidateAuthSession,
+  type AuthInvalidationReason,
+  type AuthSession,
+} from "./services/auth";
 import type { Movie } from "./types/movie";
 import { getPrimaryGenre, parseGenres } from "./utils/genres";
 import "./App.css";
@@ -18,7 +27,66 @@ type LoadState = "loading" | "success" | "error";
 const SEARCH_DEBOUNCE_MS = 300;
 
 function App() {
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
+    getStoredAuthSession(),
+  );
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const authButtonRef = useRef<HTMLButtonElement>(null);
+  const isAdminMode = authSession !== null;
+
+  useEffect(() => {
+    function handleInvalidatedSession(event: Event) {
+      const reason = (event as CustomEvent<AuthInvalidationReason>).detail;
+      setAuthSession(null);
+      setIsLoginDialogOpen(false);
+      setAuthMessage(
+        reason === "expired"
+          ? "Your admin session expired. Please log in again."
+          : "Your admin session ended because authorization failed.",
+      );
+    }
+
+    window.addEventListener(
+      AUTH_SESSION_INVALIDATED_EVENT,
+      handleInvalidatedSession,
+    );
+    return () =>
+      window.removeEventListener(
+        AUTH_SESSION_INVALIDATED_EVENT,
+        handleInvalidatedSession,
+      );
+  }, []);
+
+  useEffect(() => {
+    if (!authSession) return;
+
+    const millisecondsUntilExpiry =
+      Date.parse(authSession.expiresAtUtc) - Date.now();
+    if (millisecondsUntilExpiry <= 0) {
+      invalidateAuthSession("expired");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(
+      () => invalidateAuthSession("expired"),
+      millisecondsUntilExpiry,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [authSession]);
+
+  function handleAuthenticated(session: AuthSession) {
+    setAuthSession(session);
+    setIsLoginDialogOpen(false);
+    setAuthMessage("");
+    requestAnimationFrame(() => authButtonRef.current?.focus());
+  }
+
+  function handleLogout() {
+    clearAuthSession();
+    setAuthSession(null);
+    setAuthMessage("You have logged out of admin mode.");
+  }
 
   return (
     <div className="app-shell">
@@ -34,14 +102,35 @@ function App() {
         </Link>
 
         <button
-          className="admin-mode-toggle"
+          ref={authButtonRef}
+          className={`admin-mode-toggle${isAdminMode ? " admin-session-active" : ""}`}
           type="button"
-          aria-pressed={isAdminMode}
-          onClick={() => setIsAdminMode((current) => !current)}
+          aria-haspopup={isAdminMode ? undefined : "dialog"}
+          onClick={() => {
+            setAuthMessage("");
+            if (isAdminMode) handleLogout();
+            else setIsLoginDialogOpen(true);
+          }}
         >
-          {isAdminMode ? "EXIT ADMIN MODE" : "ADMIN MODE"}
+          {isAdminMode ? "LOGOUT" : "ADMIN LOGIN"}
         </button>
       </header>
+
+      {authMessage && (
+        <p className="auth-status" role="status" aria-live="polite">
+          {authMessage}
+        </p>
+      )}
+
+      {isLoginDialogOpen && (
+        <AdminLoginDialog
+          onAuthenticated={handleAuthenticated}
+          onCancel={() => {
+            setIsLoginDialogOpen(false);
+            requestAnimationFrame(() => authButtonRef.current?.focus());
+          }}
+        />
+      )}
 
       <Routes>
         <Route path="/" element={<CatalogPage isAdminMode={isAdminMode} />} />

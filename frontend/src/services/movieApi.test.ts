@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addMovieActor,
   createMovie,
+  createReview,
+  deleteMovie,
   getActors,
   getMovieDetails,
   getMovies,
   MovieApiError,
+  updateMovie,
 } from "./movieApi";
+import {
+  AUTH_SESSION_INVALIDATED_EVENT,
+  storeAuthSession,
+} from "./auth";
 import { makeMovie, makeMovieDetail } from "../test/fixtures";
 
 type FetchImplementation = (
@@ -16,7 +23,12 @@ type FetchImplementation = (
 
 describe("movie API client", () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.stubEnv("VITE_API_URL", "https://movies.example.test/api/Movies///");
+    storeAuthSession({
+      token: "admin-token",
+      expiresAtUtc: new Date(Date.now() + 60_000).toISOString(),
+    });
   });
 
   it("uses VITE_API_URL and normalizes trailing slashes", async () => {
@@ -172,7 +184,10 @@ describe("movie API client", () => {
     );
     expect(fetchMock.mock.calls[0][1]).toEqual({
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
       body: JSON.stringify(input),
     });
   });
@@ -221,9 +236,73 @@ describe("movie API client", () => {
     );
     expect(fetchMock.mock.calls[0][1]).toEqual({
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
       body: JSON.stringify({ role: "Huvudroll" }),
     });
+  });
+
+  it("adds the Bearer token to update and delete requests", async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(null, 204));
+    const input = {
+      title: "Spirited Away",
+      year: 2001,
+      genre: "Anime",
+      duration: 125,
+    };
+
+    await updateMovie(7, input);
+    await deleteMovie(7);
+
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
+      body: JSON.stringify(input),
+    });
+    expect(fetchMock.mock.calls[1][1]).toEqual({
+      method: "DELETE",
+      headers: { Authorization: "Bearer admin-token" },
+    });
+  });
+
+  it("keeps review creation public without an Authorization header", async () => {
+    const review = {
+      reviewerName: "Mira",
+      rating: 5,
+      comment: "A wonderful archive selection.",
+    };
+    const fetchMock = stubFetch(async () =>
+      jsonResponse({ id: 9, ...review }, 201),
+    );
+
+    await createReview(7, review);
+
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(review),
+    });
+  });
+
+  it("clears the session and announces invalidation after a 401", async () => {
+    const invalidated = vi.fn();
+    window.addEventListener(AUTH_SESSION_INVALIDATED_EVENT, invalidated);
+    stubFetch(async () => jsonResponse({ title: "Unauthorized" }, 401));
+
+    try {
+      await expect(createMovie(makeMovie())).rejects.toEqual(
+        expect.objectContaining({ name: "MovieApiError", status: 401 }),
+      );
+      expect(localStorage).toHaveLength(0);
+      expect(invalidated).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener(AUTH_SESSION_INVALIDATED_EVENT, invalidated);
+    }
   });
 
   it("preserves the response status on API errors", async () => {

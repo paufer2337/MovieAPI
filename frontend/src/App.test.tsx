@@ -11,6 +11,13 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MovieApiError } from "./services/movieApi";
+import {
+  AUTH_EXPIRY_STORAGE_KEY,
+  AUTH_TOKEN_STORAGE_KEY,
+  AuthApiError,
+  invalidateAuthSession,
+  storeAuthSession,
+} from "./services/auth";
 import { runAxe } from "./test/axe";
 import { deferred, makeMovie, makeMovieDetail } from "./test/fixtures";
 
@@ -25,9 +32,18 @@ const apiMocks = vi.hoisted(() => ({
   updateMovie: vi.fn(),
 }));
 
+const authMocks = vi.hoisted(() => ({
+  loginAdmin: vi.fn(),
+}));
+
 vi.mock("./services/movieApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/movieApi")>()),
   ...apiMocks,
+}));
+
+vi.mock("./services/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./services/auth")>()),
+  loginAdmin: authMocks.loginAdmin,
 }));
 
 const catalogMovie = makeMovie({
@@ -55,8 +71,7 @@ describe("App administration and create dialog", () => {
     const user = userEvent.setup();
     renderApp();
 
-    const adminButton = screen.getByRole("button", { name: "ADMIN MODE" });
-    expect(adminButton).toHaveAttribute("aria-pressed", "false");
+    const adminButton = screen.getByRole("button", { name: "ADMIN LOGIN" });
     expect(screen.queryByRole("button", { name: "+ ADD FILM" })).not.toBeInTheDocument();
 
     await user.click(await findMovieLink());
@@ -64,12 +79,9 @@ describe("App administration and create dialog", () => {
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
 
-    await user.click(adminButton);
+    await logInAsAdmin(user, adminButton);
 
-    expect(screen.getByRole("button", { name: "EXIT ADMIN MODE" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "LOGOUT" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
 
@@ -307,6 +319,100 @@ describe("App routing and movie details", () => {
   });
 });
 
+describe("Admin login session", () => {
+  beforeEach(resetApiMocks);
+
+  it("shows an accessible login form and prevents duplicate submissions", async () => {
+    const user = userEvent.setup();
+    const pendingLogin = deferred<{
+      token: string;
+      expiresAtUtc: string;
+    }>();
+    authMocks.loginAdmin.mockReturnValue(pendingLogin.promise);
+    renderApp();
+
+    await user.click(screen.getByRole("button", { name: "ADMIN LOGIN" }));
+    const dialog = screen.getByRole("dialog", { name: "Admin login" });
+    expect(screen.getByLabelText("Username")).toHaveFocus();
+    expect((await runAxe(dialog)).violations).toEqual([]);
+
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
+
+    const loadingButton = screen.getByRole("button", { name: "Logging in…" });
+    expect(loadingButton).toBeDisabled();
+    await user.click(loadingButton);
+    expect(authMocks.loginAdmin).toHaveBeenCalledOnce();
+
+    await act(() => pendingLogin.resolve(validSession()));
+    expect(await screen.findByRole("button", { name: "LOGOUT" })).toBeVisible();
+  });
+
+  it("shows a clear error for invalid credentials and clears the password", async () => {
+    const user = userEvent.setup();
+    authMocks.loginAdmin.mockRejectedValue(
+      new AuthApiError("Backend login error.", 401),
+    );
+    renderApp();
+
+    await user.click(screen.getByRole("button", { name: "ADMIN LOGIN" }));
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "wrong");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Invalid username or password.",
+    );
+    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Log in" })).toBeEnabled();
+  });
+
+  it("restores a valid session and logout clears localStorage", async () => {
+    const user = userEvent.setup();
+    storeAuthSession(validSession());
+    renderApp();
+
+    const logoutButton = screen.getByRole("button", { name: "LOGOUT" });
+    expect(screen.getByRole("button", { name: "+ ADD FILM" })).toBeVisible();
+    await user.click(logoutButton);
+
+    expect(localStorage).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "ADMIN LOGIN" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "+ ADD FILM" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("clears an expired stored token and remains outside admin mode", () => {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, "expired-token");
+    localStorage.setItem(
+      AUTH_EXPIRY_STORAGE_KEY,
+      new Date(Date.now() - 1_000).toISOString(),
+    );
+
+    renderApp();
+
+    expect(localStorage).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "ADMIN LOGIN" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "+ ADD FILM" }))
+      .not.toBeInTheDocument();
+  });
+
+  it("leaves admin mode and clears storage after a 401 invalidation", async () => {
+    storeAuthSession(validSession());
+    renderApp("/movies/7");
+    await screen.findByRole("heading", { level: 1, name: catalogMovie.title });
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+
+    act(() => invalidateAuthSession("unauthorized"));
+
+    expect(localStorage).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "ADMIN LOGIN" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("authorization failed");
+  });
+});
+
 describe("Admin actor assignment", () => {
   beforeEach(resetApiMocks);
 
@@ -529,11 +635,14 @@ describe("Catalog URL filters", () => {
 
 function resetApiMocks() {
   for (const apiMock of Object.values(apiMocks)) apiMock.mockReset();
+  authMocks.loginAdmin.mockReset();
+  localStorage.clear();
   apiMocks.getMovies.mockResolvedValue([catalogMovie]);
   apiMocks.getMovieDetails.mockResolvedValue(catalogDetail);
   apiMocks.getActors.mockResolvedValue([
     { id: 11, name: "Takuya Kimura", birthYear: 1972, role: "" },
   ]);
+  authMocks.loginAdmin.mockResolvedValue(validSession());
 }
 
 function renderApp(initialEntry = "/") {
@@ -552,7 +661,25 @@ async function findMovieLink() {
 }
 
 async function enterAdminMode(user: UserEvent) {
-  await user.click(screen.getByRole("button", { name: "ADMIN MODE" }));
+  await logInAsAdmin(
+    user,
+    screen.getByRole("button", { name: "ADMIN LOGIN" }),
+  );
+}
+
+async function logInAsAdmin(user: UserEvent, loginButton: HTMLElement) {
+  await user.click(loginButton);
+  await user.type(screen.getByLabelText("Username"), "admin");
+  await user.type(screen.getByLabelText("Password"), "secret");
+  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await screen.findByRole("button", { name: "LOGOUT" });
+}
+
+function validSession() {
+  return {
+    token: "admin-token",
+    expiresAtUtc: new Date(Date.now() + 60_000).toISOString(),
+  };
 }
 
 async function fillCreateDialog(user: UserEvent) {
