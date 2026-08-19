@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  addMovieActor,
   createMovie,
+  getActors,
   getMovieDetails,
   getMovies,
   MovieApiError,
@@ -186,6 +188,42 @@ describe("movie API client", () => {
       "https://movies.example.test/api/Movies/18/details",
     );
     expect(fetchMock.mock.calls[0][1]).toEqual({ signal: controller.signal });
+  });
+
+  it("loads all actors from the actors endpoint with the provided AbortSignal", async () => {
+    const actors = [
+      { id: 4, name: "Archive Actor", birthYear: 1985, role: "" },
+    ];
+    const controller = new AbortController();
+    const fetchMock = stubFetch(async () => jsonResponse(actors));
+
+    await expect(getActors(controller.signal)).resolves.toEqual(actors);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/actors",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({ signal: controller.signal });
+  });
+
+  it("posts the exact role payload when assigning an actor to a movie", async () => {
+    const actor = {
+      id: 4,
+      name: "Archive Actor",
+      birthYear: 1985,
+      role: "Huvudroll",
+    };
+    const fetchMock = stubFetch(async () => jsonResponse(actor, 201));
+
+    await expect(addMovieActor(7, 4, "Huvudroll")).resolves.toEqual(actor);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies/7/actors/4",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "Huvudroll" }),
+    });
   });
 
   it("preserves the response status on API errors", async () => {

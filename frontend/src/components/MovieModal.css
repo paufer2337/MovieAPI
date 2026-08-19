@@ -288,6 +288,7 @@
 }
 
 .review-form,
+.actor-assignment-form,
 .movie-edit-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -297,12 +298,43 @@
   padding-top: 1rem;
 }
 
-.review-form h2 {
+.review-form h2,
+.actor-assignment h2 {
   grid-column: 1 / -1;
   margin: 0 0 0.25rem;
   font-family: var(--serif);
   font-size: 1.6rem;
   font-weight: 400;
+}
+
+.actor-assignment {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgb(216 185 139 / 28%);
+  padding-top: 1rem;
+}
+
+.actor-assignment-form {
+  margin-top: 1rem;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.actor-form-status,
+.actor-form-success {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.9rem;
+  line-height: 1.5;
+}
+
+.actor-form-status {
+  border: 1px solid rgb(216 185 139 / 20%);
+  color: var(--muted-text);
+}
+
+.actor-form-success {
+  border-left: 2px solid var(--champagne);
+  background: rgb(36 70 60 / 36%);
+  color: var(--warm-paper);
 }
 
 .modal-field {
@@ -492,6 +524,7 @@
   }
 
   .review-form,
+  .actor-assignment-form,
   .movie-edit-form,
   .movie-modal-actions,
   .confirmation-actions {

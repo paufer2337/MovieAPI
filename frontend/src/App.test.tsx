@@ -1,16 +1,25 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { MovieApiError } from "./services/movieApi";
 import { runAxe } from "./test/axe";
-import { makeMovie, makeMovieDetail } from "./test/fixtures";
+import { deferred, makeMovie, makeMovieDetail } from "./test/fixtures";
 
 const apiMocks = vi.hoisted(() => ({
+  addMovieActor: vi.fn(),
   createMovie: vi.fn(),
   createReview: vi.fn(),
   deleteMovie: vi.fn(),
+  getActors: vi.fn(),
   getMovieDetails: vi.fn(),
   getMovies: vi.fn(),
   updateMovie: vi.fn(),
@@ -137,9 +146,9 @@ describe("App routing and movie details", () => {
   it("renders the catalog with real movie links and catalog page metadata", async () => {
     renderApp();
 
-    const heading = screen.getByRole("heading", { level: 1, name: /the infinite\s*archive/i });
+    const heading = screen.getByRole("heading", { level: 1, name: /selective/i });
     expect(heading).toHaveFocus();
-    expect(document.title).toBe("The Infinite Archive | CinematheQue");
+    expect(document.title).toBe("The Selective Archive | CinematheQue");
     expect(await findMovieLink()).toHaveAttribute("href", "/movies/7");
   });
 
@@ -230,7 +239,7 @@ describe("App routing and movie details", () => {
 
     expect(apiMocks.deleteMovie).toHaveBeenCalledWith(7);
     expect(
-      await screen.findByRole("heading", { level: 1, name: /the infinite\s*archive/i }),
+      await screen.findByRole("heading", { level: 1, name: /selective/i }),
     ).toBeInTheDocument();
   });
 
@@ -243,10 +252,10 @@ describe("App routing and movie details", () => {
 
     const catalogHeading = await screen.findByRole("heading", {
       level: 1,
-      name: /the infinite\s*archive/i,
+      name: /selective/i,
     });
     expect(catalogHeading).toHaveFocus();
-    expect(document.title).toBe("The Infinite Archive | CinematheQue");
+    expect(document.title).toBe("The Selective Archive | CinematheQue");
   });
 
   it("rejects invalid movie IDs without calling the API", () => {
@@ -295,6 +304,126 @@ describe("App routing and movie details", () => {
     expect(heading).toHaveFocus();
     expect(document.title).toBe("Page not found | CinematheQue");
     expect(screen.getByRole("link", { name: "Back to the catalog" })).toBeVisible();
+  });
+});
+
+describe("Admin actor assignment", () => {
+  beforeEach(resetApiMocks);
+
+  it("loads actors only in admin mode and adds the selected actor to the cast", async () => {
+    const user = userEvent.setup();
+    const actorRequest = deferred<
+      Array<{ id: number; name: string; birthYear: number; role: string }>
+    >();
+    const availableActor = {
+      id: 11,
+      name: "Takuya Kimura",
+      birthYear: 1972,
+      role: "",
+    };
+    const createdActor = { ...availableActor, role: "Howl" };
+    apiMocks.getActors.mockReturnValue(actorRequest.promise);
+    apiMocks.addMovieActor.mockResolvedValue(createdActor);
+    renderApp("/movies/7");
+    await screen.findByRole("heading", { level: 1, name: catalogMovie.title });
+    await user.click(screen.getByRole("tab", { name: "Cast" }));
+
+    expect(screen.queryByRole("heading", { name: "Add actor to cast" }))
+      .not.toBeInTheDocument();
+    expect(apiMocks.getActors).not.toHaveBeenCalled();
+
+    await enterAdminMode(user);
+
+    expect(screen.getByRole("heading", { name: "Add actor to cast" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading actors");
+    expect(apiMocks.getActors).toHaveBeenCalledWith(expect.any(AbortSignal));
+
+    await act(() => actorRequest.resolve([availableActor]));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Actor" }),
+      "11",
+    );
+    await user.type(screen.getByLabelText("Role"), " Howl ");
+    await user.click(screen.getByRole("button", { name: "Add actor" }));
+
+    expect(apiMocks.addMovieActor).toHaveBeenCalledWith(7, 11, "Howl");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Takuya Kimura was added to the cast as Howl.",
+    );
+    const cast = screen.getByRole("list", { name: "Cast" });
+    expect(within(cast).getByText("Takuya Kimura")).toBeVisible();
+    expect(within(cast).getByText("Howl")).toBeVisible();
+  });
+
+  it("shows validation and prevents duplicate submissions while saving", async () => {
+    const user = userEvent.setup();
+    const createdActor = {
+      id: 11,
+      name: "Takuya Kimura",
+      birthYear: 1972,
+      role: "Howl",
+    };
+    const actorRequest = deferred<typeof createdActor>();
+    apiMocks.addMovieActor.mockReturnValue(actorRequest.promise);
+    renderApp("/movies/7");
+    await screen.findByRole("heading", { level: 1, name: catalogMovie.title });
+    await enterAdminMode(user);
+    await user.click(screen.getByRole("tab", { name: "Cast" }));
+    await screen.findByRole("combobox", { name: "Actor" });
+
+    await user.click(screen.getByRole("button", { name: "Add actor" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Select an actor.");
+    expect(apiMocks.addMovieActor).not.toHaveBeenCalled();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Actor" }), "11");
+    await user.type(screen.getByLabelText("Role"), "Howl");
+    await user.click(screen.getByRole("button", { name: "Add actor" }));
+
+    const submittingButton = screen.getByRole("button", { name: "Adding actor…" });
+    expect(submittingButton).toBeDisabled();
+    await user.click(submittingButton);
+    expect(apiMocks.addMovieActor).toHaveBeenCalledOnce();
+
+    await act(() => actorRequest.resolve(createdActor));
+    expect(await screen.findByText(/was added to the cast as Howl/i)).toBeVisible();
+  });
+
+  it.each([
+    [404, "The movie or selected actor could not be found. Refresh and try again."],
+    [409, "This actor is already in the cast for this film."],
+  ])("shows a clear %s assignment error", async (status, expectedMessage) => {
+    const user = userEvent.setup();
+    apiMocks.addMovieActor.mockRejectedValue(
+      new MovieApiError("Backend actor error.", status),
+    );
+    renderApp("/movies/7");
+    await screen.findByRole("heading", { level: 1, name: catalogMovie.title });
+    await enterAdminMode(user);
+    await user.click(screen.getByRole("tab", { name: "Cast" }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Actor" }),
+      "11",
+    );
+    await user.type(screen.getByLabelText("Role"), "Howl");
+
+    await user.click(screen.getByRole("button", { name: "Add actor" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(expectedMessage);
+    expect(screen.getByRole("button", { name: "Add actor" })).toBeEnabled();
+  });
+
+  it("shows an accessible error when the actor list cannot be loaded", async () => {
+    const user = userEvent.setup();
+    apiMocks.getActors.mockRejectedValue(new Error("Actor service unavailable."));
+    renderApp("/movies/7");
+    await screen.findByRole("heading", { level: 1, name: catalogMovie.title });
+    await enterAdminMode(user);
+    await user.click(screen.getByRole("tab", { name: "Cast" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Actor service unavailable.",
+    );
+    expect(screen.queryByRole("combobox", { name: "Actor" })).not.toBeInTheDocument();
   });
 });
 
@@ -402,6 +531,9 @@ function resetApiMocks() {
   for (const apiMock of Object.values(apiMocks)) apiMock.mockReset();
   apiMocks.getMovies.mockResolvedValue([catalogMovie]);
   apiMocks.getMovieDetails.mockResolvedValue(catalogDetail);
+  apiMocks.getActors.mockResolvedValue([
+    { id: 11, name: "Takuya Kimura", birthYear: 1972, role: "" },
+  ]);
 }
 
 function renderApp(initialEntry = "/") {

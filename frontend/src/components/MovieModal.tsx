@@ -9,13 +9,16 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { getMoviePoster } from "../data/moviePosters";
 import {
+  addMovieActor,
   createReview,
   deleteMovie,
+  getActors,
   getMovieDetails,
   MovieApiError,
   updateMovie,
 } from "../services/movieApi";
 import type {
+  Actor,
   MovieDetail,
   MovieInput,
   ReviewInput,
@@ -24,6 +27,7 @@ import { formatGenres } from "../utils/genres";
 import "./MovieModal.css";
 
 type ModalTab = "details" | "cast" | "reviews";
+type ActorLoadState = "idle" | "loading" | "success" | "error";
 
 type MovieDetailsPageProps = {
   movieId: number;
@@ -57,6 +61,15 @@ export function MovieDetailsPage({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [availableActors, setAvailableActors] = useState<Actor[]>([]);
+  const [actorLoadState, setActorLoadState] =
+    useState<ActorLoadState>("idle");
+  const [actorLoadError, setActorLoadError] = useState("");
+  const [selectedActorId, setSelectedActorId] = useState("");
+  const [actorRole, setActorRole] = useState("");
+  const [actorFormError, setActorFormError] = useState("");
+  const [actorSuccessMessage, setActorSuccessMessage] = useState("");
+  const [isSubmittingActor, setIsSubmittingActor] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const confirmationRef = useRef<HTMLElement>(null);
@@ -93,6 +106,42 @@ export function MovieDetailsPage({
     return () => controller.abort();
   }, [movieId]);
 
+  const loadedMovieId = movie?.id;
+
+  useEffect(() => {
+    if (!isAdminMode || loadedMovieId === undefined) {
+      setAvailableActors([]);
+      setActorLoadState("idle");
+      setActorLoadError("");
+      setSelectedActorId("");
+      setActorRole("");
+      setActorFormError("");
+      setActorSuccessMessage("");
+      setIsSubmittingActor(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setActorLoadState("loading");
+    setActorLoadError("");
+
+    getActors(controller.signal)
+      .then((actors) => {
+        setAvailableActors(actors);
+        setActorLoadState("success");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+
+        setActorLoadError(
+          error instanceof Error ? error.message : "Could not load actors.",
+        );
+        setActorLoadState("error");
+      });
+
+    return () => controller.abort();
+  }, [isAdminMode, loadedMovieId]);
+
   useEffect(() => {
     document.title = movie
       ? `${movie.title} | CinematheQue`
@@ -124,6 +173,11 @@ export function MovieDetailsPage({
     const total = movie.reviews.reduce((sum, review) => sum + review.rating, 0);
     return (total / movie.reviews.length).toFixed(1);
   }, [movie?.reviews]);
+
+  const unassignedActors = useMemo(() => {
+    const assignedActorIds = new Set(movie?.actors.map((actor) => actor.id));
+    return availableActors.filter((actor) => !assignedActorIds.has(actor.id));
+  }, [availableActors, movie?.actors]);
 
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
@@ -269,6 +323,54 @@ export function MovieDetailsPage({
       );
     } finally {
       setIsSubmittingReview(false);
+    }
+  }
+
+  async function handleActorSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!movie || isSubmittingActor) return;
+
+    const actorId = Number(selectedActorId);
+    const role = actorRole.trim();
+
+    if (!Number.isSafeInteger(actorId) || actorId <= 0) {
+      setActorFormError("Select an actor.");
+      setActorSuccessMessage("");
+      return;
+    }
+
+    if (role.length < 2 || role.length > 100) {
+      setActorFormError("Role must be between 2 and 100 characters.");
+      setActorSuccessMessage("");
+      return;
+    }
+
+    setIsSubmittingActor(true);
+    setActorFormError("");
+    setActorSuccessMessage("");
+
+    try {
+      const createdActor = await addMovieActor(movie.id, actorId, role);
+      setMovie((current) =>
+        current
+          ? {
+              ...current,
+              actors: [
+                ...current.actors.filter((actor) => actor.id !== createdActor.id),
+                createdActor,
+              ],
+            }
+          : current,
+      );
+      setSelectedActorId("");
+      setActorRole("");
+      setActorSuccessMessage(
+        `${createdActor.name} was added to the cast as ${createdActor.role}.`,
+      );
+    } catch (error) {
+      setActorFormError(getActorAssignmentError(error));
+    } finally {
+      setIsSubmittingActor(false);
     }
   }
 
@@ -508,7 +610,7 @@ export function MovieDetailsPage({
                         {movie.actors.length === 0 ? (
                           <p className="modal-empty-state">No cast is listed for this film.</p>
                         ) : (
-                          <ul className="cast-list">
+                          <ul className="cast-list" aria-label="Cast">
                             {movie.actors.map((actor) => (
                               <li key={`${actor.id}-${actor.role}`}>
                                 <strong>{actor.name}</strong>
@@ -519,6 +621,103 @@ export function MovieDetailsPage({
                               </li>
                             ))}
                           </ul>
+                        )}
+
+                        {isAdminMode && (
+                          <section
+                            className="actor-assignment"
+                            aria-labelledby="actor-assignment-title"
+                          >
+                            <h2 id="actor-assignment-title">Add actor to cast</h2>
+
+                            {actorLoadState === "loading" && (
+                              <p className="actor-form-status" role="status">
+                                Loading actors…
+                              </p>
+                            )}
+
+                            {actorLoadState === "error" && (
+                              <p className="modal-form-error" role="alert">
+                                {actorLoadError}
+                              </p>
+                            )}
+
+                            {actorSuccessMessage && (
+                              <p
+                                className="actor-form-success"
+                                role="status"
+                                aria-live="polite"
+                              >
+                                {actorSuccessMessage}
+                              </p>
+                            )}
+
+                            {actorLoadState === "success" &&
+                              unassignedActors.length === 0 && (
+                                <p className="actor-form-status">
+                                  No additional actors are available.
+                                </p>
+                              )}
+
+                            {actorLoadState === "success" &&
+                              unassignedActors.length > 0 && (
+                                <form
+                                  className="actor-assignment-form"
+                                  onSubmit={handleActorSubmit}
+                                  noValidate
+                                >
+                                  <div className="modal-field">
+                                    <label htmlFor="actor-select">Actor</label>
+                                    <select
+                                      id="actor-select"
+                                      value={selectedActorId}
+                                      onChange={(event) => {
+                                        setSelectedActorId(event.target.value);
+                                        setActorFormError("");
+                                        setActorSuccessMessage("");
+                                      }}
+                                      disabled={isSubmittingActor}
+                                      required
+                                    >
+                                      <option value="">Select an actor</option>
+                                      {unassignedActors.map((actor) => (
+                                        <option key={actor.id} value={actor.id}>
+                                          {actor.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="modal-field">
+                                    <label htmlFor="actor-role">Role</label>
+                                    <input
+                                      id="actor-role"
+                                      value={actorRole}
+                                      onChange={(event) => {
+                                        setActorRole(event.target.value);
+                                        setActorFormError("");
+                                        setActorSuccessMessage("");
+                                      }}
+                                      minLength={2}
+                                      maxLength={100}
+                                      disabled={isSubmittingActor}
+                                      required
+                                    />
+                                  </div>
+                                  {actorFormError && (
+                                    <p className="modal-form-error" role="alert">
+                                      {actorFormError}
+                                    </p>
+                                  )}
+                                  <button
+                                    className="modal-button modal-button-primary modal-field-wide"
+                                    type="submit"
+                                    disabled={isSubmittingActor}
+                                  >
+                                    {isSubmittingActor ? "Adding actor…" : "Add actor"}
+                                  </button>
+                                </form>
+                              )}
+                          </section>
                         )}
                       </div>
                     )}
@@ -677,6 +876,22 @@ function validateReview(review: ReviewInput): string | null {
     return "Comment must be between 10 and 200 characters.";
   }
   return null;
+}
+
+function getActorAssignmentError(error: unknown): string {
+  if (error instanceof MovieApiError) {
+    if (error.status === 404) {
+      return "The movie or selected actor could not be found. Refresh and try again.";
+    }
+
+    if (error.status === 409) {
+      return "This actor is already in the cast for this film.";
+    }
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Could not add the actor to the cast.";
 }
 
 function formatBudget(budget?: number): string {

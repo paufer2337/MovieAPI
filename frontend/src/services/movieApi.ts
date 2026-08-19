@@ -1,4 +1,5 @@
 import type {
+  Actor,
   Movie,
   MovieDetail,
   MovieInput,
@@ -109,6 +110,37 @@ export async function getMovieDetails(
   return response.json() as Promise<MovieDetail>;
 }
 
+export async function getActors(signal?: AbortSignal): Promise<Actor[]> {
+  const response = await fetch(buildActorsApiUrl(), { signal });
+
+  if (!response.ok) {
+    throw await createApiError(response, "Could not fetch actors");
+  }
+
+  return readActors(response);
+}
+
+export async function addMovieActor(
+  movieId: number,
+  actorId: number,
+  role: string,
+): Promise<Actor> {
+  const response = await fetch(
+    buildApiUrl(`${movieId}/actors/${actorId}`),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    },
+  );
+
+  if (!response.ok) {
+    throw await createApiError(response, "Could not add the actor to the movie");
+  }
+
+  return readActor(response);
+}
+
 export async function updateMovie(
   movieId: number,
   movie: MovieInput,
@@ -155,6 +187,14 @@ function buildApiUrl(path = ""): URL {
   const baseUrl = getApiBaseUrl();
   const normalizedPath = path.replace(/^\/+/, "");
   return new URL(normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl);
+}
+
+function buildActorsApiUrl(): URL {
+  const url = buildApiUrl();
+  const pathSegments = url.pathname.split("/").filter(Boolean);
+  pathSegments[pathSegments.length - 1] = "actors";
+  url.pathname = `/${pathSegments.join("/")}`;
+  return url;
 }
 
 function getApiBaseUrl(): string {
@@ -217,6 +257,52 @@ function isMovie(value: unknown): value is Movie {
     typeof movie.genre === "string" &&
     typeof movie.duration === "number" &&
     Number.isInteger(movie.duration)
+  );
+}
+
+async function readActors(response: Response): Promise<Actor[]> {
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("The Movie API returned an actor list that was not valid JSON.");
+  }
+
+  if (!Array.isArray(body) || !body.every(isActor)) {
+    throw new Error("The Movie API returned an invalid actor list response.");
+  }
+
+  return body;
+}
+
+async function readActor(response: Response): Promise<Actor> {
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("The Movie API returned an actor that was not valid JSON.");
+  }
+
+  if (!isActor(body)) {
+    throw new Error("The Movie API returned an invalid actor response.");
+  }
+
+  return body;
+}
+
+function isActor(value: unknown): value is Actor {
+  if (typeof value !== "object" || value === null) return false;
+
+  const actor = value as Record<string, unknown>;
+  return (
+    typeof actor.id === "number" &&
+    Number.isInteger(actor.id) &&
+    typeof actor.name === "string" &&
+    typeof actor.birthYear === "number" &&
+    Number.isInteger(actor.birthYear) &&
+    typeof actor.role === "string"
   );
 }
 
