@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MovieApi.DTOs;
 using MovieApi.Services;
@@ -54,6 +55,7 @@ public class MoviesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<MovieDto>> CreateMovie(MovieCreateDto dto)
     {
         var created = await _service.CreateAsync(dto);
@@ -70,6 +72,7 @@ public class MoviesController : ControllerBase
     }
 
     [HttpPost("{movieId:int}/actors/{actorId:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ActorDto>> AddActor(
         int movieId,
         int actorId,
@@ -107,14 +110,17 @@ public class MoviesController : ControllerBase
     }
 
     [HttpDelete("{id}/reviews/{reviewId}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteReview(int id, int reviewId)
         => await _service.DeleteReviewAsync(id, reviewId) ? NoContent() : NotFound();
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateMovie(int id, MovieUpdateDto dto)
         => await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteMovie(int id)
         => await _service.DeleteAsync(id) ? NoContent() : NotFound();
 
