@@ -485,3 +485,5 @@ $RECYCLE.BIN/
 
 # Local SQLite development database
 /MovieApi/movies.db
+*.db-shm
+*.db-wal
