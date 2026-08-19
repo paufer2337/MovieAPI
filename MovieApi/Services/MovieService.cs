@@ -36,6 +36,50 @@ public class MovieService : IMovieService
         return movie is null ? null : ToDetailDto(movie);
     }
 
+    public async Task<List<ActorDto>> GetActorsAsync()
+    {
+        var actors = await _repo.GetActorsAsync();
+        return actors.Select(actor => ToActorDto(actor, string.Empty)).ToList();
+    }
+
+    public async Task<AddMovieActorResult> AddActorAsync(
+        int movieId,
+        int actorId,
+        MovieActorCreateDto dto)
+    {
+        var role = dto.Role?.Trim();
+        if (movieId <= 0 || actorId <= 0 || string.IsNullOrWhiteSpace(role) ||
+            role.Length is < 2 or > 100)
+        {
+            return new(AddMovieActorStatus.InvalidRequest);
+        }
+
+        var movie = await _repo.GetByIdAsync(movieId);
+        if (movie is null) return new(AddMovieActorStatus.MovieNotFound);
+
+        var actor = await _repo.GetActorByIdAsync(actorId);
+        if (actor is null) return new(AddMovieActorStatus.ActorNotFound);
+
+        if (await _repo.MovieActorExistsAsync(movieId, actorId))
+        {
+            return new(AddMovieActorStatus.Duplicate);
+        }
+
+        var movieActor = new MovieActor
+        {
+            MovieId = movieId,
+            Movie = movie,
+            ActorId = actorId,
+            Actor = actor,
+            Role = role
+        };
+
+        await _repo.AddMovieActorAsync(movieActor);
+        await _repo.SaveAsync();
+
+        return new(AddMovieActorStatus.Created, ToActorDto(actor, role));
+    }
+
     public async Task<List<ReviewDto>?> GetReviewsAsync(int movieId)
     {
         if (await _repo.GetByIdAsync(movieId) is null) return null;
@@ -106,9 +150,12 @@ public class MovieService : IMovieService
     private static ReviewDto ToReviewDto(Review review) =>
         new(review.Id, review.ReviewerName, review.Comment, review.Rating);
 
+    private static ActorDto ToActorDto(Actor actor, string role) =>
+        new(actor.Id, actor.Name, actor.BirthYear, role);
+
     private static MovieDetailDto ToDetailDto(Movie m) => new(
         m.Id, m.Title, m.Year, m.Genre, m.Duration,
         m.MovieDetails is null ? null : new MovieDetailsDto(m.MovieDetails.Synopsis, m.MovieDetails.Language, m.MovieDetails.Budget),
         m.Reviews.Select(ToReviewDto).ToList(),
-        m.MovieActors.Select(ma => new ActorDto(ma.Actor.Id, ma.Actor.Name, ma.Actor.BirthYear, ma.Role)).ToList());
+        m.MovieActors.Select(ma => ToActorDto(ma.Actor, ma.Role)).ToList());
 }

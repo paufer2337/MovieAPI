@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using MovieApi.Controllers;
@@ -107,6 +108,84 @@ public class MoviesControllerTests
         var result = await _controller.CreateReview(404, dto);
 
         Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task AddActor_ReturnsCreatedActor_WithTrimmedRole()
+    {
+        var dto = new MovieActorCreateDto { Role = "  Huvudroll  " };
+        var actor = new ActorDto(4, "Archive Actor", 1985, "Huvudroll");
+        _serviceMock.Setup(service => service.AddActorAsync(3, 4, dto))
+            .ReturnsAsync(new AddMovieActorResult(AddMovieActorStatus.Created, actor));
+
+        var result = await _controller.AddActor(3, 4, dto);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(nameof(MoviesController.GetMovieDetails), createdResult.ActionName);
+        Assert.Equal(3, createdResult.RouteValues?["id"]);
+        Assert.Same(actor, createdResult.Value);
+        Assert.Equal("Huvudroll", dto.Role);
+        _serviceMock.Verify(service => service.AddActorAsync(3, 4, dto), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(AddMovieActorStatus.MovieNotFound, "Movie not found.")]
+    [InlineData(AddMovieActorStatus.ActorNotFound, "Actor not found.")]
+    public async Task AddActor_ReturnsNotFound_WhenMovieOrActorIsMissing(
+        AddMovieActorStatus status,
+        string expectedTitle)
+    {
+        var dto = new MovieActorCreateDto { Role = "Huvudroll" };
+        _serviceMock.Setup(service => service.AddActorAsync(3, 4, dto))
+            .ReturnsAsync(new AddMovieActorResult(status));
+
+        var result = await _controller.AddActor(3, 4, dto);
+
+        var notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+        var problem = Assert.IsType<ProblemDetails>(notFound.Value);
+        Assert.Equal(StatusCodes.Status404NotFound, problem.Status);
+        Assert.Equal(expectedTitle, problem.Title);
+    }
+
+    [Fact]
+    public async Task AddActor_ReturnsConflict_WhenLinkAlreadyExists()
+    {
+        var dto = new MovieActorCreateDto { Role = "Huvudroll" };
+        _serviceMock.Setup(service => service.AddActorAsync(3, 4, dto))
+            .ReturnsAsync(new AddMovieActorResult(AddMovieActorStatus.Duplicate));
+
+        var result = await _controller.AddActor(3, 4, dto);
+
+        var conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        var problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal("The actor is already linked to this movie.", problem.Title);
+    }
+
+    [Theory]
+    [InlineData(0, 4, "Huvudroll")]
+    [InlineData(3, 0, "Huvudroll")]
+    [InlineData(3, 4, " ")]
+    [InlineData(3, 4, "X")]
+    public async Task AddActor_ReturnsValidationProblem_ForInvalidRequest(
+        int movieId,
+        int actorId,
+        string role)
+    {
+        var result = await _controller.AddActor(
+            movieId,
+            actorId,
+            new MovieActorCreateDto { Role = role });
+
+        var validationProblem = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, validationProblem.StatusCode);
+        Assert.IsType<ValidationProblemDetails>(validationProblem.Value);
+        _serviceMock.Verify(
+            service => service.AddActorAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<MovieActorCreateDto>()),
+            Times.Never);
     }
 
     [Fact]

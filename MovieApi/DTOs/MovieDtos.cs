@@ -60,11 +60,6 @@ public class ReviewCreateDto
 
 public class MovieActorCreateDto
 {
-    [Required(ErrorMessage = "Actor is required.")] 
-    [Range(1, int.MaxValue, ErrorMessage = "A valid actor is required.")]
-    public int ActorId { get; set; }
-
-
     [Required(ErrorMessage = "Role must be specified.")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Role must be between 2 and 100 characters.")] 
     public string Role { get; set; } = string.Empty;

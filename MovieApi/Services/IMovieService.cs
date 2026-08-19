@@ -8,6 +8,11 @@ public interface IMovieService
     search, string? sortBy, bool descending, int page, int pageSize);
     Task<MovieDto?> GetByIdAsync(int id);
     Task<MovieDetailDto?> GetDetailsAsync(int id);
+    Task<List<ActorDto>> GetActorsAsync();
+    Task<AddMovieActorResult> AddActorAsync(
+        int movieId,
+        int actorId,
+        MovieActorCreateDto dto);
     Task<List<ReviewDto>?> GetReviewsAsync(int movieId);
     Task<MovieDto> CreateAsync(MovieCreateDto dto);
     Task<ReviewDto?> CreateReviewAsync(int movieId, ReviewCreateDto dto);

@@ -88,6 +88,129 @@ public class MovieServiceTests
     }
 
     [Fact]
+    public async Task GetActorsAsync_MapsAllActors()
+    {
+        _repoMock.Setup(repository => repository.GetActorsAsync()).ReturnsAsync(
+            new List<Actor>
+            {
+                new() { Id = 2, Name = "Actor Two", BirthYear = 1980 },
+                new() { Id = 1, Name = "Actor One", BirthYear = 1970 }
+            });
+
+        var result = await _service.GetActorsAsync();
+
+        Assert.Collection(
+            result,
+            actor =>
+            {
+                Assert.Equal(2, actor.Id);
+                Assert.Equal("Actor Two", actor.Name);
+                Assert.Equal(string.Empty, actor.Role);
+            },
+            actor => Assert.Equal(1, actor.Id));
+    }
+
+    [Fact]
+    public async Task AddActorAsync_CreatesLink_WithTrimmedRole()
+    {
+        var movie = new Movie { Id = 7, Title = "Spirited Away" };
+        var actor = new Actor { Id = 11, Name = "Rumi Hiiragi", BirthYear = 1987 };
+        var dto = new MovieActorCreateDto { Role = "  Chihiro  " };
+        _repoMock.Setup(repository => repository.GetByIdAsync(7)).ReturnsAsync(movie);
+        _repoMock.Setup(repository => repository.GetActorByIdAsync(11)).ReturnsAsync(actor);
+        _repoMock.Setup(repository => repository.MovieActorExistsAsync(7, 11))
+            .ReturnsAsync(false);
+
+        var result = await _service.AddActorAsync(7, 11, dto);
+
+        Assert.Equal(AddMovieActorStatus.Created, result.Status);
+        Assert.Equal(new ActorDto(11, "Rumi Hiiragi", 1987, "Chihiro"), result.Actor);
+        _repoMock.Verify(repository => repository.AddMovieActorAsync(
+            It.Is<MovieActor>(movieActor =>
+                movieActor.MovieId == 7 &&
+                movieActor.ActorId == 11 &&
+                movieActor.Role == "Chihiro")), Times.Once);
+        _repoMock.Verify(repository => repository.SaveAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task AddActorAsync_ReturnsMovieNotFound_WhenMovieIsMissing()
+    {
+        _repoMock.Setup(repository => repository.GetByIdAsync(404))
+            .ReturnsAsync((Movie?)null);
+
+        var result = await _service.AddActorAsync(
+            404,
+            11,
+            new MovieActorCreateDto { Role = "Huvudroll" });
+
+        Assert.Equal(AddMovieActorStatus.MovieNotFound, result.Status);
+        _repoMock.Verify(repository => repository.GetActorByIdAsync(It.IsAny<int>()), Times.Never);
+        _repoMock.Verify(repository => repository.SaveAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddActorAsync_ReturnsActorNotFound_WhenActorIsMissing()
+    {
+        _repoMock.Setup(repository => repository.GetByIdAsync(7))
+            .ReturnsAsync(new Movie { Id = 7 });
+        _repoMock.Setup(repository => repository.GetActorByIdAsync(404))
+            .ReturnsAsync((Actor?)null);
+
+        var result = await _service.AddActorAsync(
+            7,
+            404,
+            new MovieActorCreateDto { Role = "Huvudroll" });
+
+        Assert.Equal(AddMovieActorStatus.ActorNotFound, result.Status);
+        _repoMock.Verify(
+            repository => repository.MovieActorExistsAsync(It.IsAny<int>(), It.IsAny<int>()),
+            Times.Never);
+        _repoMock.Verify(repository => repository.SaveAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddActorAsync_ReturnsDuplicate_WithoutWriting()
+    {
+        _repoMock.Setup(repository => repository.GetByIdAsync(7))
+            .ReturnsAsync(new Movie { Id = 7 });
+        _repoMock.Setup(repository => repository.GetActorByIdAsync(11))
+            .ReturnsAsync(new Actor { Id = 11 });
+        _repoMock.Setup(repository => repository.MovieActorExistsAsync(7, 11))
+            .ReturnsAsync(true);
+
+        var result = await _service.AddActorAsync(
+            7,
+            11,
+            new MovieActorCreateDto { Role = "Huvudroll" });
+
+        Assert.Equal(AddMovieActorStatus.Duplicate, result.Status);
+        _repoMock.Verify(
+            repository => repository.AddMovieActorAsync(It.IsAny<MovieActor>()),
+            Times.Never);
+        _repoMock.Verify(repository => repository.SaveAsync(), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(0, 11, "Huvudroll")]
+    [InlineData(7, 0, "Huvudroll")]
+    [InlineData(7, 11, " ")]
+    [InlineData(7, 11, "X")]
+    public async Task AddActorAsync_ReturnsInvalidRequest_ForInvalidInput(
+        int movieId,
+        int actorId,
+        string role)
+    {
+        var result = await _service.AddActorAsync(
+            movieId,
+            actorId,
+            new MovieActorCreateDto { Role = role });
+
+        Assert.Equal(AddMovieActorStatus.InvalidRequest, result.Status);
+        _repoMock.Verify(repository => repository.GetByIdAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CreateAsync_AddsMovie_AndReturnsDto()
     {
         var dto = new MovieCreateDto
