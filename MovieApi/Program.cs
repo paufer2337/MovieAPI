@@ -74,6 +74,8 @@ builder.Services.AddDbContext<MovieContext>(options =>
 builder.Services.AddScoped<IMovieRepository, MovieRepository>();
 builder.Services.AddScoped<IMovieService, MovieService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IReportsRepository, ReportsRepository>();
+builder.Services.AddScoped<IReportsService, ReportsService>();
 
 var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
