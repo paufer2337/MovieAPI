@@ -9,7 +9,7 @@ import {
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
+import App, { INTRO_SESSION_STORAGE_KEY } from "./App";
 import { MovieApiError } from "./services/movieApi";
 import {
   AUTH_EXPIRY_STORAGE_KEY,
@@ -72,6 +72,8 @@ describe("App administration and create dialog", () => {
     renderApp();
 
     const adminButton = screen.getByRole("button", { name: "ADMIN LOGIN" });
+    expect(screen.queryByRole("link", { name: "DASHBOARD" }))
+      .not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ ADD FILM" })).not.toBeInTheDocument();
 
     await user.click(await findMovieLink());
@@ -82,6 +84,10 @@ describe("App administration and create dialog", () => {
     await logInAsAdmin(user, adminButton);
 
     expect(screen.getByRole("button", { name: "LOGOUT" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "DASHBOARD" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
 
@@ -149,6 +155,75 @@ describe("App administration and create dialog", () => {
     expect(screen.getByRole("heading", { name: "Princess Mononoke" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Add a film" })).not.toBeInTheDocument();
     await waitFor(() => expect(addButton).toHaveFocus());
+  });
+});
+
+describe("Cinematic intro", () => {
+  beforeEach(resetApiMocks);
+
+  it("shows the intro on the first catalog visit in a session", () => {
+    renderApp();
+
+    expect(screen.getByTestId("cinematic-intro")).toBeInTheDocument();
+    expect(screen.getByTestId("intro-logo")).toHaveAttribute(
+      "src",
+      "/images/intro-logo.png",
+    );
+    expect(screen.getByTestId("intro-logo")).toHaveAttribute("alt", "");
+    expect(screen.getByRole("button", { name: "Skip intro" })).toBeVisible();
+  });
+
+  it("skips the intro when the session marker already exists", () => {
+    sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
+    renderApp();
+
+    expect(screen.queryByTestId("cinematic-intro")).not.toBeInTheDocument();
+  });
+
+  it("does not show the intro on the dashboard", () => {
+    renderApp("/dashboard");
+
+    expect(screen.queryByTestId("cinematic-intro")).not.toBeInTheDocument();
+  });
+
+  it("removes the overlay immediately when the intro is skipped", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(screen.getByRole("button", { name: "Skip intro" }));
+
+    expect(screen.queryByTestId("cinematic-intro")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /selective/i }))
+      .toBeVisible();
+    expect(sessionStorage.getItem(INTRO_SESSION_STORAGE_KEY)).toBe("true");
+  });
+
+  it("navigates to the dashboard and applies its active button style", async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
+    storeAuthSession(validSession());
+    const { router } = renderApp();
+    const dashboardLink = screen.getByRole("link", { name: "DASHBOARD" });
+
+    expect(dashboardLink).not.toHaveClass("admin-session-active");
+    await user.click(dashboardLink);
+
+    expect(router.state.location.pathname).toBe("/dashboard");
+    expect(dashboardLink).toHaveClass("admin-session-active");
+  });
+
+  it("never leaves a blocking overlay if an animation event is missed", () => {
+    vi.useFakeTimers();
+
+    try {
+      renderApp();
+      act(() => vi.advanceTimersByTime(9_000));
+
+      expect(screen.queryByTestId("cinematic-intro")).not.toBeInTheDocument();
+      expect(sessionStorage.getItem(INTRO_SESSION_STORAGE_KEY)).toBe("true");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -637,6 +712,7 @@ function resetApiMocks() {
   for (const apiMock of Object.values(apiMocks)) apiMock.mockReset();
   authMocks.loginAdmin.mockReset();
   localStorage.clear();
+  sessionStorage.clear();
   apiMocks.getMovies.mockResolvedValue([catalogMovie]);
   apiMocks.getMovieDetails.mockResolvedValue(catalogDetail);
   apiMocks.getActors.mockResolvedValue([

@@ -3,8 +3,17 @@
   gap: 1rem;
 }
 
+.header-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .admin-mode-toggle,
 .add-film-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.75rem;
   border: 1px solid var(--champagne);
   border-radius: 0;
