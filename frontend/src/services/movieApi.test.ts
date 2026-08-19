@@ -1,0 +1,335 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  addMovieActor,
+  createMovie,
+  createReview,
+  deleteMovie,
+  getActors,
+  getMovieDetails,
+  getMovies,
+  MovieApiError,
+  updateMovie,
+} from "./movieApi";
+import {
+  AUTH_SESSION_INVALIDATED_EVENT,
+  storeAuthSession,
+} from "./auth";
+import { makeMovie, makeMovieDetail } from "../test/fixtures";
+
+type FetchImplementation = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
+
+describe("movie API client", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubEnv("VITE_API_URL", "https://movies.example.test/api/Movies///");
+    storeAuthSession({
+      token: "admin-token",
+      expiresAtUtc: new Date(Date.now() + 60_000).toISOString(),
+    });
+  });
+
+  it("uses VITE_API_URL and normalizes trailing slashes", async () => {
+    const fetchMock = stubFetch(async () => jsonResponse([]));
+
+    await getMovies();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies?page=1&pageSize=50",
+    );
+  });
+
+  it("loads all pages sequentially with the same AbortSignal", async () => {
+    const movies = Array.from({ length: 75 }, (_, index) =>
+      makeMovie({ id: index + 1, title: `Movie ${index + 1}` }),
+    );
+    const controller = new AbortController();
+    const requestedPages: number[] = [];
+    const receivedSignals: Array<AbortSignal | null | undefined> = [];
+    const fetchMock = stubFetch(async (input, init) => {
+      const url = new URL(String(input));
+      const page = Number(url.searchParams.get("page"));
+      const pageSize = Number(url.searchParams.get("pageSize"));
+      requestedPages.push(page);
+      receivedSignals.push(init?.signal);
+      return jsonResponse(
+        movies.slice((page - 1) * pageSize, page * pageSize),
+      );
+    });
+
+    const result = await getMovies({ signal: controller.signal });
+
+    expect(result).toEqual(movies);
+    expect(requestedPages).toEqual([1, 2]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(receivedSignals).toEqual([controller.signal, controller.signal]);
+  });
+
+  it("sends search and genre filters on every catalog page request", async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) =>
+      makeMovie({ id: index + 1 }),
+    );
+    const fetchMock = stubFetch(async (input) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      return jsonResponse(page === 1 ? firstPage : []);
+    });
+
+    await getMovies({ genre: "Fantasy", search: "castle" });
+
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "https://movies.example.test/api/Movies?page=1&pageSize=50&genre=Fantasy&search=castle",
+      "https://movies.example.test/api/Movies?page=2&pageSize=50&genre=Fantasy&search=castle",
+    ]);
+  });
+
+  it("requests one empty terminal page when the catalog is exactly full", async () => {
+    const movies = Array.from({ length: 50 }, (_, index) =>
+      makeMovie({ id: index + 1 }),
+    );
+    const requestedPages: number[] = [];
+    stubFetch(async (input) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      requestedPages.push(page);
+      return jsonResponse(page === 1 ? movies : []);
+    });
+
+    await expect(getMovies()).resolves.toHaveLength(50);
+    expect(requestedPages).toEqual([1, 2]);
+  });
+
+  it("preserves AbortError when a request is cancelled", async () => {
+    const controller = new AbortController();
+    stubFetch(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          const rejectWithAbort = () =>
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+
+          if (init?.signal?.aborted) {
+            rejectWithAbort();
+            return;
+          }
+
+          init?.signal?.addEventListener("abort", rejectWithAbort, {
+            once: true,
+          });
+        }),
+    );
+
+    const request = getMovies({ signal: controller.signal });
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("rejects the whole operation when a later page fails", async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) =>
+      makeMovie({ id: index + 1 }),
+    );
+    const fetchMock = stubFetch(async (input) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      return page === 1
+        ? jsonResponse(firstPage)
+        : jsonResponse({ title: "The second page failed." }, 503);
+    });
+
+    await expect(getMovies()).rejects.toThrow("The second page failed.");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("deduplicates movie IDs while preserving first-seen order", async () => {
+    const firstPage = Array.from({ length: 50 }, (_, index) =>
+      makeMovie({ id: index + 1, title: `Original ${index + 1}` }),
+    );
+    stubFetch(async (input) => {
+      const page = Number(new URL(String(input)).searchParams.get("page"));
+      return jsonResponse(
+        page === 1
+          ? firstPage
+          : [
+              makeMovie({ id: 50, title: "Duplicate replacement" }),
+              makeMovie({ id: 51, title: "New 51" }),
+              makeMovie({ id: 52, title: "New 52" }),
+            ],
+      );
+    });
+
+    const result = await getMovies();
+
+    expect(result).toHaveLength(52);
+    expect(result.map((movie) => movie.id)).toEqual(
+      Array.from({ length: 52 }, (_, index) => index + 1),
+    );
+    expect(result[49].title).toBe("Original 50");
+  });
+
+  it("sends the exact create-movie POST payload", async () => {
+    const input = {
+      title: "Princess Mononoke",
+      year: 1997,
+      genre: "Animation/Anime/Fantasy",
+      duration: 134,
+    };
+    const created = makeMovie({ id: 42, ...input });
+    const fetchMock = stubFetch(async () => jsonResponse(created, 201));
+
+    await expect(createMovie(input)).resolves.toEqual(created);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
+      body: JSON.stringify(input),
+    });
+  });
+
+  it("loads one movie detail route with the provided AbortSignal", async () => {
+    const detail = makeMovieDetail({ id: 18 });
+    const controller = new AbortController();
+    const fetchMock = stubFetch(async () => jsonResponse(detail));
+
+    await expect(getMovieDetails(18, controller.signal)).resolves.toEqual(detail);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies/18/details",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({ signal: controller.signal });
+  });
+
+  it("loads all actors from the actors endpoint with the provided AbortSignal", async () => {
+    const actors = [
+      { id: 4, name: "Archive Actor", birthYear: 1985, role: "" },
+    ];
+    const controller = new AbortController();
+    const fetchMock = stubFetch(async () => jsonResponse(actors));
+
+    await expect(getActors(controller.signal)).resolves.toEqual(actors);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/actors",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({ signal: controller.signal });
+  });
+
+  it("posts the exact role payload when assigning an actor to a movie", async () => {
+    const actor = {
+      id: 4,
+      name: "Archive Actor",
+      birthYear: 1985,
+      role: "Huvudroll",
+    };
+    const fetchMock = stubFetch(async () => jsonResponse(actor, 201));
+
+    await expect(addMovieActor(7, 4, "Huvudroll")).resolves.toEqual(actor);
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://movies.example.test/api/Movies/7/actors/4",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
+      body: JSON.stringify({ role: "Huvudroll" }),
+    });
+  });
+
+  it("adds the Bearer token to update and delete requests", async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(null, 204));
+    const input = {
+      title: "Spirited Away",
+      year: 2001,
+      genre: "Anime",
+      duration: 125,
+    };
+
+    await updateMovie(7, input);
+    await deleteMovie(7);
+
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer admin-token",
+      },
+      body: JSON.stringify(input),
+    });
+    expect(fetchMock.mock.calls[1][1]).toEqual({
+      method: "DELETE",
+      headers: { Authorization: "Bearer admin-token" },
+    });
+  });
+
+  it("keeps review creation public without an Authorization header", async () => {
+    const review = {
+      reviewerName: "Mira",
+      rating: 5,
+      comment: "A wonderful archive selection.",
+    };
+    const fetchMock = stubFetch(async () =>
+      jsonResponse({ id: 9, ...review }, 201),
+    );
+
+    await createReview(7, review);
+
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(review),
+    });
+  });
+
+  it("clears the session and announces invalidation after a 401", async () => {
+    const invalidated = vi.fn();
+    window.addEventListener(AUTH_SESSION_INVALIDATED_EVENT, invalidated);
+    stubFetch(async () => jsonResponse({ title: "Unauthorized" }, 401));
+
+    try {
+      await expect(createMovie(makeMovie())).rejects.toEqual(
+        expect.objectContaining({ name: "MovieApiError", status: 401 }),
+      );
+      expect(localStorage).toHaveLength(0);
+      expect(invalidated).toHaveBeenCalledOnce();
+    } finally {
+      window.removeEventListener(AUTH_SESSION_INVALIDATED_EVENT, invalidated);
+    }
+  });
+
+  it("preserves the response status on API errors", async () => {
+    stubFetch(async () => jsonResponse({ title: "Movie not found." }, 404));
+
+    const request = getMovieDetails(999);
+
+    await expect(request).rejects.toEqual(
+      expect.objectContaining<MovieApiError>({
+        name: "MovieApiError",
+        message: "Movie not found.",
+        status: 404,
+      }),
+    );
+  });
+});
+
+function stubFetch(implementation: FetchImplementation) {
+  const fetchMock = vi.fn(implementation);
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => structuredClone(body),
+  } as Response;
+}

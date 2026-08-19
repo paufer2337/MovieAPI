@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MovieApi.DTOs;
 using MovieApi.Services;
@@ -54,6 +55,7 @@ public class MoviesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<MovieDto>> CreateMovie(MovieCreateDto dto)
     {
         var created = await _service.CreateAsync(dto);
@@ -69,15 +71,91 @@ public class MoviesController : ControllerBase
             : CreatedAtAction(nameof(GetMovieDetails), new { id }, created);
     }
 
+    [HttpPost("{movieId:int}/actors/{actorId:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<ActorDto>> AddActor(
+        int movieId,
+        int actorId,
+        MovieActorCreateDto dto)
+    {
+        ValidateMovieActorRequest(movieId, actorId, dto);
+        if (!ModelState.IsValid) return InvalidMovieActorRequest();
+
+        dto.Role = dto.Role.Trim();
+        var result = await _service.AddActorAsync(movieId, actorId, dto);
+
+        return result.Status switch
+        {
+            AddMovieActorStatus.Created => CreatedAtAction(
+                nameof(GetMovieDetails),
+                new { id = movieId },
+                result.Actor),
+            AddMovieActorStatus.MovieNotFound => NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Movie not found."
+            }),
+            AddMovieActorStatus.ActorNotFound => NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Actor not found."
+            }),
+            AddMovieActorStatus.Duplicate => Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The actor is already linked to this movie."
+            }),
+            _ => InvalidMovieActorRequest()
+        };
+    }
+
     [HttpDelete("{id}/reviews/{reviewId}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteReview(int id, int reviewId)
         => await _service.DeleteReviewAsync(id, reviewId) ? NoContent() : NotFound();
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateMovie(int id, MovieUpdateDto dto)
         => await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteMovie(int id)
         => await _service.DeleteAsync(id) ? NoContent() : NotFound();
+
+    private void ValidateMovieActorRequest(
+        int movieId,
+        int actorId,
+        MovieActorCreateDto dto)
+    {
+        if (movieId <= 0)
+        {
+            ModelState.AddModelError(nameof(movieId), "A valid movie id is required.");
+        }
+
+        if (actorId <= 0)
+        {
+            ModelState.AddModelError(nameof(actorId), "A valid actor id is required.");
+        }
+
+        var role = dto.Role?.Trim();
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            ModelState.AddModelError(nameof(dto.Role), "Role must be specified.");
+        }
+        else if (role.Length is < 2 or > 100)
+        {
+            ModelState.AddModelError(
+                nameof(dto.Role),
+                "Role must be between 2 and 100 characters.");
+        }
+    }
+
+    private BadRequestObjectResult InvalidMovieActorRequest() =>
+        BadRequest(new ValidationProblemDetails(ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred."
+        });
 }

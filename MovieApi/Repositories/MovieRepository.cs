@@ -47,6 +47,19 @@ public class MovieRepository : IMovieRepository
         .Include(m => m.MovieActors).ThenInclude(ma => ma.Actor)
         .FirstOrDefaultAsync(m => m.Id == id);
 
+    public Task<List<Actor>> GetActorsAsync() => _context.Actors
+        .AsNoTracking()
+        .OrderBy(actor => actor.Name)
+        .ThenBy(actor => actor.Id)
+        .ToListAsync();
+
+    public Task<Actor?> GetActorByIdAsync(int actorId) =>
+        _context.Actors.FindAsync(actorId).AsTask();
+
+    public Task<bool> MovieActorExistsAsync(int movieId, int actorId) =>
+        _context.MovieActors.AnyAsync(movieActor =>
+            movieActor.MovieId == movieId && movieActor.ActorId == actorId);
+
     public Task<List<Review>> GetReviewsAsync(int movieId) => _context.Reviews
         .Where(review => review.MovieId == movieId)
         .OrderBy(review => review.Id)
@@ -58,6 +71,8 @@ public class MovieRepository : IMovieRepository
 
     public async Task AddAsync(Movie movie) => await _context.Movies.AddAsync(movie);
     public async Task AddReviewAsync(Review review) => await _context.Reviews.AddAsync(review);
+    public async Task AddMovieActorAsync(MovieActor movieActor) =>
+        await _context.MovieActors.AddAsync(movieActor);
     public void Delete(Movie movie) => _context.Movies.Remove(movie);
     public void DeleteReview(Review review) => _context.Reviews.Remove(review);
     public Task SaveAsync() => _context.SaveChangesAsync();

@@ -1,12 +1,17 @@
 import type {
+  Actor,
   Movie,
   MovieDetail,
   MovieInput,
   Review,
   ReviewInput,
 } from "../types/movie";
+import {
+  getStoredAuthSession,
+  invalidateAuthSession,
+} from "./auth";
+import { buildMovieApiUrl, buildSiblingApiUrl } from "./apiUrl";
 
-const DEVELOPMENT_API_URL = "http://localhost:5000/api/Movies";
 const MOVIE_PAGE_SIZE = 50;
 const MAX_PAGE_REQUESTS = 1_000;
 
@@ -14,8 +19,19 @@ type MoviePageResponse = Movie[];
 
 type GetMoviesOptions = {
   genre?: string;
+  search?: string;
   signal?: AbortSignal;
 };
+
+export class MovieApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "MovieApiError";
+    this.status = status;
+  }
+}
 
 export async function getMovies(
   options: GetMoviesOptions = {},
@@ -23,12 +39,16 @@ export async function getMovies(
   const moviesById = new Map<number, Movie>();
 
   for (let page = 1; page <= MAX_PAGE_REQUESTS; page += 1) {
-    const url = buildApiUrl();
+    const url = buildMovieApiUrl();
     url.searchParams.set("page", String(page));
     url.searchParams.set("pageSize", String(MOVIE_PAGE_SIZE));
 
     if (options.genre) {
       url.searchParams.set("genre", options.genre);
+    }
+
+    if (options.search) {
+      url.searchParams.set("search", options.search);
     }
 
     const response = await fetch(url, {
@@ -66,9 +86,9 @@ export async function getMovies(
 }
 
 export async function createMovie(movie: MovieInput): Promise<Movie> {
-  const response = await fetch(buildApiUrl(), {
+  const response = await fetch(buildMovieApiUrl(), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: createAdminHeaders(true),
     body: JSON.stringify(movie),
   });
 
@@ -83,7 +103,7 @@ export async function getMovieDetails(
   movieId: number,
   signal?: AbortSignal,
 ): Promise<MovieDetail> {
-  const response = await fetch(buildApiUrl(`${movieId}/details`), {
+  const response = await fetch(buildMovieApiUrl(`${movieId}/details`), {
     signal,
   });
 
@@ -94,13 +114,44 @@ export async function getMovieDetails(
   return response.json() as Promise<MovieDetail>;
 }
 
+export async function getActors(signal?: AbortSignal): Promise<Actor[]> {
+  const response = await fetch(buildSiblingApiUrl("actors"), { signal });
+
+  if (!response.ok) {
+    throw await createApiError(response, "Could not fetch actors");
+  }
+
+  return readActors(response);
+}
+
+export async function addMovieActor(
+  movieId: number,
+  actorId: number,
+  role: string,
+): Promise<Actor> {
+  const response = await fetch(
+    buildMovieApiUrl(`${movieId}/actors/${actorId}`),
+    {
+      method: "POST",
+      headers: createAdminHeaders(true),
+      body: JSON.stringify({ role }),
+    },
+  );
+
+  if (!response.ok) {
+    throw await createApiError(response, "Could not add the actor to the movie");
+  }
+
+  return readActor(response);
+}
+
 export async function updateMovie(
   movieId: number,
   movie: MovieInput,
 ): Promise<void> {
-  const response = await fetch(buildApiUrl(String(movieId)), {
+  const response = await fetch(buildMovieApiUrl(String(movieId)), {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: createAdminHeaders(true),
     body: JSON.stringify(movie),
   });
 
@@ -110,8 +161,9 @@ export async function updateMovie(
 }
 
 export async function deleteMovie(movieId: number): Promise<void> {
-  const response = await fetch(buildApiUrl(String(movieId)), {
+  const response = await fetch(buildMovieApiUrl(String(movieId)), {
     method: "DELETE",
+    headers: createAdminHeaders(),
   });
 
   if (!response.ok) {
@@ -123,7 +175,7 @@ export async function createReview(
   movieId: number,
   review: ReviewInput,
 ): Promise<Review> {
-  const response = await fetch(buildApiUrl(`${movieId}/reviews`), {
+  const response = await fetch(buildMovieApiUrl(`${movieId}/reviews`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(review),
@@ -136,37 +188,20 @@ export async function createReview(
   return response.json() as Promise<Review>;
 }
 
-function buildApiUrl(path = ""): URL {
-  const baseUrl = getApiBaseUrl();
-  const normalizedPath = path.replace(/^\/+/, "");
-  return new URL(normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl);
-}
-
-function getApiBaseUrl(): string {
-  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
-  const candidate =
-    configuredUrl || (import.meta.env.DEV ? DEVELOPMENT_API_URL : undefined);
-
-  if (!candidate) {
-    throw new Error(
-      "The Movie API is not configured. Set VITE_API_URL for this deployment.",
+function createAdminHeaders(includeJson = false): Record<string, string> {
+  const session = getStoredAuthSession();
+  if (!session) {
+    invalidateAuthSession("expired");
+    throw new MovieApiError(
+      "Your admin session has expired. Please log in again.",
+      401,
     );
   }
 
-  const normalizedUrl = candidate.replace(/\/+$/, "");
-
-  try {
-    const parsedUrl = new URL(normalizedUrl);
-    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-      throw new Error();
-    }
-  } catch {
-    throw new Error(
-      "The Movie API configuration is invalid. VITE_API_URL must be an absolute HTTP or HTTPS URL.",
-    );
-  }
-
-  return normalizedUrl;
+  return {
+    ...(includeJson ? { "Content-Type": "application/json" } : {}),
+    Authorization: `Bearer ${session.token}`,
+  };
 }
 
 async function readMoviePage(response: Response): Promise<MoviePageResponse> {
@@ -205,10 +240,60 @@ function isMovie(value: unknown): value is Movie {
   );
 }
 
+async function readActors(response: Response): Promise<Actor[]> {
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("The Movie API returned an actor list that was not valid JSON.");
+  }
+
+  if (!Array.isArray(body) || !body.every(isActor)) {
+    throw new Error("The Movie API returned an invalid actor list response.");
+  }
+
+  return body;
+}
+
+async function readActor(response: Response): Promise<Actor> {
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("The Movie API returned an actor that was not valid JSON.");
+  }
+
+  if (!isActor(body)) {
+    throw new Error("The Movie API returned an invalid actor response.");
+  }
+
+  return body;
+}
+
+function isActor(value: unknown): value is Actor {
+  if (typeof value !== "object" || value === null) return false;
+
+  const actor = value as Record<string, unknown>;
+  return (
+    typeof actor.id === "number" &&
+    Number.isInteger(actor.id) &&
+    typeof actor.name === "string" &&
+    typeof actor.birthYear === "number" &&
+    Number.isInteger(actor.birthYear) &&
+    typeof actor.role === "string"
+  );
+}
+
 async function createApiError(
   response: Response,
   fallbackMessage: string,
 ): Promise<Error> {
+  if (response.status === 401) {
+    invalidateAuthSession("unauthorized");
+  }
+
   try {
     const body = (await response.json()) as {
       errors?: Record<string, string[]>;
@@ -218,10 +303,14 @@ async function createApiError(
       ? Object.values(body.errors).flat().join(" ")
       : undefined;
 
-    return new Error(
+    return new MovieApiError(
       validationMessage || body.title || `${fallbackMessage} (${response.status}).`,
+      response.status,
     );
   } catch {
-    return new Error(`${fallbackMessage} (${response.status}).`);
+    return new MovieApiError(
+      `${fallbackMessage} (${response.status}).`,
+      response.status,
+    );
   }
 }

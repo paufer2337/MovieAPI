@@ -54,6 +54,7 @@ Controller → Service → Repository → DbContext → SQLite
 * DTOs för att inte exponera databasen direkt i API:t
 * Validering med DataAnnotations
 * Global error handling via middleware
+* JWT-autentisering för administrativa endpoints
 * Swagger för att testa API:t
 * Enhetstester för controller och service
 
@@ -109,13 +110,32 @@ dotnet restore
 dotnet ef database update --project MovieApi
 ```
 
-4. Starta API:t:
+4. Sätt JWT-hemligheter lokalt. Värdena nedan är platshållare och ska ersättas
+   med egna lokala värden:
+
+```bash
+dotnet user-secrets set "Jwt:Key" "<minst-32-tecken-lokal-signeringsnyckel>" --project MovieApi
+dotnet user-secrets set "Jwt:AdminPassword" "<starkt-lokalt-adminlosenord>" --project MovieApi
+```
+
+Alternativt kan miljövariabler användas. I PowerShell:
+
+```powershell
+$env:Jwt__Key="<minst-32-tecken-lokal-signeringsnyckel>"
+$env:Jwt__AdminPassword="<starkt-lokalt-adminlosenord>"
+```
+
+`Jwt:Issuer`, `Jwt:Audience`, `Jwt:AdminUsername` och tokenlivslängden ligger som
+icke-hemliga standardvärden i `appsettings.json`. API:t vägrar starta och visar
+vilka inställningar som saknas om JWT-konfigurationen är ogiltig.
+
+5. Starta API:t:
 
 ```bash
 dotnet run --project MovieApi
 ```
 
-5. Öppna Swagger i webbläsaren:
+6. Öppna Swagger i webbläsaren:
 
 ```text
 https://localhost:<port>/swagger

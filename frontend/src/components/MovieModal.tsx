@@ -6,14 +6,19 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getMoviePoster } from "../data/moviePosters";
 import {
+  addMovieActor,
   createReview,
   deleteMovie,
+  getActors,
   getMovieDetails,
+  MovieApiError,
   updateMovie,
 } from "../services/movieApi";
 import type {
-  Movie,
+  Actor,
   MovieDetail,
   MovieInput,
   ReviewInput,
@@ -22,14 +27,11 @@ import { formatGenres } from "../utils/genres";
 import "./MovieModal.css";
 
 type ModalTab = "details" | "cast" | "reviews";
+type ActorLoadState = "idle" | "loading" | "success" | "error";
 
-type MovieModalProps = {
+type MovieDetailsPageProps = {
   movieId: number;
-  posterUrl?: string;
   isAdminMode: boolean;
-  onClose: () => void;
-  onDeleted: (movieId: number) => void;
-  onUpdated: (movie: Movie) => void;
 };
 
 const emptyReview: ReviewInput = {
@@ -40,19 +42,17 @@ const emptyReview: ReviewInput = {
 
 const tabs: ModalTab[] = ["details", "cast", "reviews"];
 
-export function MovieModal({
+export function MovieDetailsPage({
   movieId,
-  posterUrl,
   isAdminMode,
-  onClose,
-  onDeleted,
-  onUpdated,
-}: MovieModalProps) {
+}: MovieDetailsPageProps) {
+  const navigate = useNavigate();
   const [movie, setMovie] = useState<MovieDetail | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
     "loading",
   );
   const [loadError, setLoadError] = useState("");
+  const [isNotFound, setIsNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<ModalTab>("details");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<MovieInput | null>(null);
@@ -61,20 +61,26 @@ export function MovieModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [availableActors, setAvailableActors] = useState<Actor[]>([]);
+  const [actorLoadState, setActorLoadState] =
+    useState<ActorLoadState>("idle");
+  const [actorLoadError, setActorLoadError] = useState("");
+  const [selectedActorId, setSelectedActorId] = useState("");
+  const [actorRole, setActorRole] = useState("");
+  const [actorFormError, setActorFormError] = useState("");
+  const [actorSuccessMessage, setActorSuccessMessage] = useState("");
+  const [isSubmittingActor, setIsSubmittingActor] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const panelRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const confirmationRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const deleteCancelButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const loadedMovieId = movie?.id;
 
   useEffect(() => {
     const controller = new AbortController();
     setMovie(null);
     setLoadState("loading");
     setLoadError("");
+    setIsNotFound(false);
     setActiveTab("details");
     setIsEditing(false);
     setShowDeleteConfirmation(false);
@@ -90,6 +96,7 @@ export function MovieModal({
           return;
         }
 
+        setIsNotFound(error instanceof MovieApiError && error.status === 404);
         setLoadError(
           error instanceof Error ? error.message : "Could not open this film.",
         );
@@ -99,56 +106,53 @@ export function MovieModal({
     return () => controller.abort();
   }, [movieId]);
 
+  const loadedMovieId = movie?.id;
+
   useEffect(() => {
-    const activeElement = document.activeElement as HTMLElement | null;
-    if (activeElement?.classList.contains("movie-card-trigger")) {
-      previousFocusRef.current = activeElement;
+    if (!isAdminMode || loadedMovieId === undefined) {
+      setAvailableActors([]);
+      setActorLoadState("idle");
+      setActorLoadError("");
+      setSelectedActorId("");
+      setActorRole("");
+      setActorFormError("");
+      setActorSuccessMessage("");
+      setIsSubmittingActor(false);
+      return;
     }
-  }, [movieId]);
 
-  useEffect(() => {
-    if (loadedMovieId === undefined) return;
+    const controller = new AbortController();
+    setActorLoadState("loading");
+    setActorLoadError("");
 
-    const panel = panelRef.current;
-    const title = titleRef.current;
-    if (!panel || !title) return;
+    getActors(controller.signal)
+      .then((actors) => {
+        setAvailableActors(actors);
+        setActorLoadState("success");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
 
-    const siteHeader = document.querySelector<HTMLElement>(".site-header");
-    panel.style.setProperty(
-      "--movie-panel-scroll-offset",
-      `${siteHeader?.getBoundingClientRect().height ?? 0}px`,
-    );
-
-    const titleRect = title.getBoundingClientRect();
-    const panelRect = panel.getBoundingClientRect();
-    const viewportHeight = document.documentElement.clientHeight;
-    const visibleTop = Math.max(0, panelRect.top);
-    const visibleBottom = Math.min(viewportHeight, panelRect.bottom);
-    const isTitleVisible =
-      titleRect.top >= visibleTop && titleRect.bottom <= visibleBottom;
-
-    if (!isTitleVisible) {
-      const reducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-
-      title.scrollIntoView({
-        behavior: reducedMotion ? "auto" : "smooth",
-        block: "start",
+        setActorLoadError(
+          error instanceof Error ? error.message : "Could not load actors.",
+        );
+        setActorLoadState("error");
       });
-    }
 
-    title.focus({ preventScroll: true });
-  }, [loadedMovieId]);
+    return () => controller.abort();
+  }, [isAdminMode, loadedMovieId]);
 
-  useEffect(
-    () => () => {
-      if (previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus({ preventScroll: true });
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    document.title = movie
+      ? `${movie.title} | CinematheQue`
+      : isNotFound
+        ? "Film not found | CinematheQue"
+        : "Movie details | CinematheQue";
+  }, [isNotFound, movie]);
+
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
+  }, [loadState]);
 
   useEffect(() => {
     if (showDeleteConfirmation) {
@@ -170,7 +174,10 @@ export function MovieModal({
     return (total / movie.reviews.length).toFixed(1);
   }, [movie?.reviews]);
 
-  const isBusy = isSaving || isDeleting || isSubmittingReview;
+  const unassignedActors = useMemo(() => {
+    const assignedActorIds = new Set(movie?.actors.map((actor) => actor.id));
+    return availableActors.filter((actor) => !assignedActorIds.has(actor.id));
+  }, [availableActors, movie?.actors]);
 
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
@@ -183,8 +190,6 @@ export function MovieModal({
       } else if (isEditing) {
         setIsEditing(false);
         setActionError("");
-      } else {
-        onClose();
       }
       return;
     }
@@ -260,9 +265,7 @@ export function MovieModal({
 
     try {
       await updateMovie(movie.id, payload);
-      const updatedMovie: Movie = { id: movie.id, ...payload };
       setMovie((current) => (current ? { ...current, ...payload } : current));
-      onUpdated(updatedMovie);
       setIsEditing(false);
     } catch (error) {
       setActionError(
@@ -280,7 +283,7 @@ export function MovieModal({
 
     try {
       await deleteMovie(movieId);
-      onDeleted(movieId);
+      navigate("/", { replace: true });
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Could not delete the film.",
@@ -323,35 +326,86 @@ export function MovieModal({
     }
   }
 
+  async function handleActorSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!movie || isSubmittingActor) return;
+
+    const actorId = Number(selectedActorId);
+    const role = actorRole.trim();
+
+    if (!Number.isSafeInteger(actorId) || actorId <= 0) {
+      setActorFormError("Select an actor.");
+      setActorSuccessMessage("");
+      return;
+    }
+
+    if (role.length < 2 || role.length > 100) {
+      setActorFormError("Role must be between 2 and 100 characters.");
+      setActorSuccessMessage("");
+      return;
+    }
+
+    setIsSubmittingActor(true);
+    setActorFormError("");
+    setActorSuccessMessage("");
+
+    try {
+      const createdActor = await addMovieActor(movie.id, actorId, role);
+      setMovie((current) =>
+        current
+          ? {
+              ...current,
+              actors: [
+                ...current.actors.filter((actor) => actor.id !== createdActor.id),
+                createdActor,
+              ],
+            }
+          : current,
+      );
+      setSelectedActorId("");
+      setActorRole("");
+      setActorSuccessMessage(
+        `${createdActor.name} was added to the cast as ${createdActor.role}.`,
+      );
+    } catch (error) {
+      setActorFormError(getActorAssignmentError(error));
+    } finally {
+      setIsSubmittingActor(false);
+    }
+  }
+
+  const posterUrl = movie ? getMoviePoster(movie.title) : undefined;
+
   return (
-      <aside
+    <main className="movie-detail-route">
+      <Link className="movie-detail-back" to="/">
+        ← Back to the catalog
+      </Link>
+
+      <article
         id="movie-details-panel"
-        ref={panelRef}
         className="movie-details-panel"
         aria-labelledby={movie ? "movie-modal-title" : undefined}
         aria-label={!movie ? "Movie details" : undefined}
         onKeyDown={handlePanelKeyDown}
       >
-        <button
-          ref={closeButtonRef}
-          className="movie-modal-close"
-          type="button"
-          aria-label="Close movie details"
-          onClick={onClose}
-          disabled={isBusy}
-        >
-          ×
-        </button>
-
         {loadState === "loading" && (
           <div className="movie-modal-status" role="status">
-            Loading film details…
+            <h1 ref={titleRef} tabIndex={-1}>Movie details</h1>
+            <span>Loading film details…</span>
           </div>
         )}
 
         {loadState === "error" && (
           <div className="movie-modal-status" role="alert">
-            <strong>The film details could not be opened.</strong>
+            <h1 ref={titleRef} tabIndex={-1}>
+              {isNotFound ? "Film not found" : "Movie details"}
+            </h1>
+            <strong>
+              {isNotFound
+                ? "This film does not exist in the archive."
+                : "The film details could not be opened."}
+            </strong>
             <span>{loadError}</span>
           </div>
         )}
@@ -414,9 +468,9 @@ export function MovieModal({
             <div className="movie-modal-content">
               <header className="movie-modal-heading">
                 <p className="modal-kicker">CinematheQue archive</p>
-                <h2 id="movie-modal-title" ref={titleRef} tabIndex={-1}>
+                <h1 id="movie-modal-title" ref={titleRef} tabIndex={-1}>
                   {movie.title}
-                </h2>
+                </h1>
                 <p className="movie-modal-meta">
                   <span>{movie.year}</span>
                   <span>{formatGenres(movie.genre)}</span>
@@ -556,7 +610,7 @@ export function MovieModal({
                         {movie.actors.length === 0 ? (
                           <p className="modal-empty-state">No cast is listed for this film.</p>
                         ) : (
-                          <ul className="cast-list">
+                          <ul className="cast-list" aria-label="Cast">
                             {movie.actors.map((actor) => (
                               <li key={`${actor.id}-${actor.role}`}>
                                 <strong>{actor.name}</strong>
@@ -567,6 +621,103 @@ export function MovieModal({
                               </li>
                             ))}
                           </ul>
+                        )}
+
+                        {isAdminMode && (
+                          <section
+                            className="actor-assignment"
+                            aria-labelledby="actor-assignment-title"
+                          >
+                            <h2 id="actor-assignment-title">Add actor to cast</h2>
+
+                            {actorLoadState === "loading" && (
+                              <p className="actor-form-status" role="status">
+                                Loading actors…
+                              </p>
+                            )}
+
+                            {actorLoadState === "error" && (
+                              <p className="modal-form-error" role="alert">
+                                {actorLoadError}
+                              </p>
+                            )}
+
+                            {actorSuccessMessage && (
+                              <p
+                                className="actor-form-success"
+                                role="status"
+                                aria-live="polite"
+                              >
+                                {actorSuccessMessage}
+                              </p>
+                            )}
+
+                            {actorLoadState === "success" &&
+                              unassignedActors.length === 0 && (
+                                <p className="actor-form-status">
+                                  No additional actors are available.
+                                </p>
+                              )}
+
+                            {actorLoadState === "success" &&
+                              unassignedActors.length > 0 && (
+                                <form
+                                  className="actor-assignment-form"
+                                  onSubmit={handleActorSubmit}
+                                  noValidate
+                                >
+                                  <div className="modal-field">
+                                    <label htmlFor="actor-select">Actor</label>
+                                    <select
+                                      id="actor-select"
+                                      value={selectedActorId}
+                                      onChange={(event) => {
+                                        setSelectedActorId(event.target.value);
+                                        setActorFormError("");
+                                        setActorSuccessMessage("");
+                                      }}
+                                      disabled={isSubmittingActor}
+                                      required
+                                    >
+                                      <option value="">Select an actor</option>
+                                      {unassignedActors.map((actor) => (
+                                        <option key={actor.id} value={actor.id}>
+                                          {actor.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="modal-field">
+                                    <label htmlFor="actor-role">Role</label>
+                                    <input
+                                      id="actor-role"
+                                      value={actorRole}
+                                      onChange={(event) => {
+                                        setActorRole(event.target.value);
+                                        setActorFormError("");
+                                        setActorSuccessMessage("");
+                                      }}
+                                      minLength={2}
+                                      maxLength={100}
+                                      disabled={isSubmittingActor}
+                                      required
+                                    />
+                                  </div>
+                                  {actorFormError && (
+                                    <p className="modal-form-error" role="alert">
+                                      {actorFormError}
+                                    </p>
+                                  )}
+                                  <button
+                                    className="modal-button modal-button-primary modal-field-wide"
+                                    type="submit"
+                                    disabled={isSubmittingActor}
+                                  >
+                                    {isSubmittingActor ? "Adding actor…" : "Add actor"}
+                                  </button>
+                                </form>
+                              )}
+                          </section>
                         )}
                       </div>
                     )}
@@ -600,7 +751,7 @@ export function MovieModal({
                         )}
 
                         <form className="review-form" onSubmit={handleReviewSubmit}>
-                          <h3>Leave a review</h3>
+                          <h2>Leave a review</h2>
                           <div className="modal-field">
                             <label htmlFor="reviewer-name">Reviewer</label>
                             <input
@@ -692,7 +843,8 @@ export function MovieModal({
             </div>
           </div>
         )}
-      </aside>
+      </article>
+    </main>
   );
 }
 
@@ -724,6 +876,22 @@ function validateReview(review: ReviewInput): string | null {
     return "Comment must be between 10 and 200 characters.";
   }
   return null;
+}
+
+function getActorAssignmentError(error: unknown): string {
+  if (error instanceof MovieApiError) {
+    if (error.status === 404) {
+      return "The movie or selected actor could not be found. Refresh and try again.";
+    }
+
+    if (error.status === 409) {
+      return "This actor is already in the cast for this film.";
+    }
+  }
+
+  return error instanceof Error
+    ? error.message
+    : "Could not add the actor to the cast.";
 }
 
 function formatBudget(budget?: number): string {

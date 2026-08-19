@@ -97,6 +97,51 @@ public class MovieRepositoryTests
         Assert.NotNull(await context.Reviews.FindAsync(secondReview.Id));
     }
 
+    [Fact]
+    public async Task ActorQueries_ReturnActors_AndPersistMovieLink()
+    {
+        using var connection = new SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        await using var context = CreateContext(connection);
+        await context.Database.EnsureCreatedAsync();
+        var movie = new Movie
+        {
+            Title = "Archive Film",
+            Year = 2000,
+            Genre = "Drama",
+            Duration = 100
+        };
+        var secondActor = new Actor { Name = "Zulu Actor", BirthYear = 1980 };
+        var firstActor = new Actor { Name = "Alpha Actor", BirthYear = 1970 };
+        context.AddRange(movie, secondActor, firstActor);
+        await context.SaveChangesAsync();
+        var repository = new MovieRepository(context);
+
+        var actors = await repository.GetActorsAsync();
+        var actor = await repository.GetActorByIdAsync(firstActor.Id);
+        var existsBefore = await repository.MovieActorExistsAsync(movie.Id, firstActor.Id);
+        await repository.AddMovieActorAsync(new MovieActor
+        {
+            MovieId = movie.Id,
+            Movie = movie,
+            ActorId = firstActor.Id,
+            Actor = firstActor,
+            Role = "Huvudroll"
+        });
+        await repository.SaveAsync();
+        var existsAfter = await repository.MovieActorExistsAsync(movie.Id, firstActor.Id);
+
+        Assert.Collection(
+            actors,
+            item => Assert.Equal("Alpha Actor", item.Name),
+            item => Assert.Equal("Zulu Actor", item.Name));
+        Assert.Equal(firstActor.Id, actor?.Id);
+        Assert.False(existsBefore);
+        Assert.True(existsAfter);
+        var storedLink = await context.MovieActors.FindAsync(movie.Id, firstActor.Id);
+        Assert.Equal("Huvudroll", storedLink?.Role);
+    }
+
     private static MovieContext CreateContext(SqliteConnection connection)
     {
         var options = new DbContextOptionsBuilder<MovieContext>()
