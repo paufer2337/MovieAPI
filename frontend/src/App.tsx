@@ -1,292 +1,54 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type RefObject,
-} from "react";
-import {
-  Link,
-  NavLink,
-  Route,
-  Routes,
-  useLocation,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
-import { MovieCreateDialog } from "./components/MovieCreateForm";
-import { MovieDetailsPage } from "./components/MovieModal";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { AdminLoginDialog } from "./components/AdminLoginDialog";
 import { DashboardPage } from "./components/DashboardPage";
-import { getMoviePoster } from "./data/moviePosters";
-import { getMovies } from "./services/movieApi";
-import {
-  AUTH_SESSION_INVALIDATED_EVENT,
-  clearAuthSession,
-  getStoredAuthSession,
-  invalidateAuthSession,
-  type AuthInvalidationReason,
-  type AuthSession,
-} from "./services/auth";
-import type { Movie } from "./types/movie";
-import { getPrimaryGenre, parseGenres } from "./utils/genres";
+import { CinematicIntro } from "./components/intro/CinematicIntro";
+import { SiteHeader } from "./components/layout/SiteHeader";
+import { useAuthSession } from "./hooks/useAuthSession";
+import { useCinematicIntro } from "./hooks/useCinematicIntro";
+import { CatalogPage } from "./pages/CatalogPage";
+import { MovieDetailsRoute } from "./pages/MovieDetailsRoute";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import "./App.css";
 
-type LoadState = "loading" | "success" | "error";
-type IntroPhase = "logo" | "name" | "name-out" | "flight" | "settle";
-type HeroRevealState = "waiting" | "animated" | "complete";
-const SEARCH_DEBOUNCE_MS = 300;
-export const INTRO_SESSION_STORAGE_KEY = "cinematheque:intro-complete";
-
-function prefersReducedMotion() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-}
-
-function shouldStartIntro(pathname: string) {
-  return pathname === "/" &&
-    sessionStorage.getItem(INTRO_SESSION_STORAGE_KEY) !== "true" &&
-    !prefersReducedMotion();
-}
+export { INTRO_SESSION_STORAGE_KEY } from "./hooks/useCinematicIntro";
 
 function App() {
   const location = useLocation();
-  const [authSession, setAuthSession] = useState<AuthSession | null>(() =>
-    getStoredAuthSession(),
-  );
-  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
-  const [authMessage, setAuthMessage] = useState("");
-  const [introPhase, setIntroPhase] = useState<IntroPhase | null>(() =>
-    shouldStartIntro(location.pathname) ? "logo" : null,
-  );
-  const [animateHero, setAnimateHero] = useState(false);
-  const [flightTransform, setFlightTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const authButtonRef = useRef<HTMLButtonElement>(null);
-  const headerLogoRef = useRef<HTMLImageElement>(null);
-  const introLogoRef = useRef<HTMLImageElement>(null);
-  const isAdminMode = authSession !== null;
-  const introActive = introPhase !== null;
-
-  useEffect(() => {
-    if (location.pathname !== "/") {
-      setIntroPhase((currentPhase) => {
-        if (currentPhase) {
-          sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
-        }
-        return null;
-      });
-      return;
-    }
-
-    if (sessionStorage.getItem(INTRO_SESSION_STORAGE_KEY) === "true") return;
-
-    if (prefersReducedMotion()) {
-      sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
-      setAnimateHero(false);
-      return;
-    }
-
-    setAnimateHero(false);
-    setIntroPhase((currentPhase) => currentPhase ?? "logo");
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (!introActive) return;
-
-    const fallbackId = window.setTimeout(() => {
-      sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
-      setAnimateHero(true);
-      setIntroPhase(null);
-    }, 9_000);
-
-    return () => window.clearTimeout(fallbackId);
-  }, [introActive]);
-
-  useEffect(() => {
-    function handleInvalidatedSession(event: Event) {
-      const reason = (event as CustomEvent<AuthInvalidationReason>).detail;
-      setAuthSession(null);
-      setIsLoginDialogOpen(false);
-      setAuthMessage(
-        reason === "expired"
-          ? "Your admin session expired. Please log in again."
-          : "Your admin session ended because authorization failed.",
-      );
-    }
-
-    window.addEventListener(
-      AUTH_SESSION_INVALIDATED_EVENT,
-      handleInvalidatedSession,
-    );
-    return () =>
-      window.removeEventListener(
-        AUTH_SESSION_INVALIDATED_EVENT,
-        handleInvalidatedSession,
-      );
-  }, []);
-
-  useEffect(() => {
-    if (!authSession) return;
-
-    const millisecondsUntilExpiry =
-      Date.parse(authSession.expiresAtUtc) - Date.now();
-    if (millisecondsUntilExpiry <= 0) {
-      invalidateAuthSession("expired");
-      return;
-    }
-
-    const timeoutId = window.setTimeout(
-      () => invalidateAuthSession("expired"),
-      millisecondsUntilExpiry,
-    );
-    return () => window.clearTimeout(timeoutId);
-  }, [authSession]);
-
-  function handleAuthenticated(session: AuthSession) {
-    setAuthSession(session);
-    setIsLoginDialogOpen(false);
-    setAuthMessage("");
-    requestAnimationFrame(() => authButtonRef.current?.focus());
-  }
-
-  function handleLogout() {
-    clearAuthSession();
-    setAuthSession(null);
-    setAuthMessage("You have logged out of admin mode.");
-  }
-
-  function finishIntro(shouldAnimateHero: boolean) {
-    sessionStorage.setItem(INTRO_SESSION_STORAGE_KEY, "true");
-    setAnimateHero(shouldAnimateHero);
-    setIntroPhase(null);
-  }
-
-  function startLogoFlight() {
-    const sourceBounds = introLogoRef.current?.getBoundingClientRect();
-    const targetBounds = headerLogoRef.current?.getBoundingClientRect();
-
-    if (!sourceBounds || !targetBounds) {
-      finishIntro(true);
-      return;
-    }
-
-    setFlightTransform({
-      x: targetBounds.left + targetBounds.width / 2 -
-        (sourceBounds.left + sourceBounds.width / 2),
-      y: targetBounds.top + targetBounds.height / 2 -
-        (sourceBounds.top + sourceBounds.height / 2),
-      scale: sourceBounds.width > 0 ? targetBounds.width / sourceBounds.width : 1,
-    });
-    setIntroPhase("flight");
-  }
+  const auth = useAuthSession();
+  const intro = useCinematicIntro(location.pathname);
 
   return (
     <div className="app-shell">
-      <header className="site-header">
-        <Link
-          className={`brand${introActive ? " brand-intro-target-hidden" : ""}`}
-          to="/"
-          aria-label="CinematheQue home"
-        >
-          <img
-            ref={headerLogoRef}
-            className="brand-lockup"
-            src="/branding/cinematheque-header-lockup.webp"
-            alt=""
-            width={1200}
-            height={244}
-          />
-        </Link>
+      <SiteHeader
+        authButtonRef={auth.authButtonRef}
+        headerLogoRef={intro.headerLogoRef}
+        hideLogo={intro.introActive}
+        isAdminMode={auth.isAdminMode}
+        onAuthAction={auth.handleAuthAction}
+      />
 
-        <div className="header-admin-actions">
-          {isAdminMode && (
-            <NavLink
-              className={({ isActive }) =>
-                `admin-mode-toggle${isActive ? " admin-session-active" : ""}`
-              }
-              to="/dashboard"
-            >
-              DASHBOARD
-            </NavLink>
-          )}
-          <button
-            ref={authButtonRef}
-            className={`admin-mode-toggle${isAdminMode ? " admin-session-active" : ""}`}
-            type="button"
-            aria-haspopup={isAdminMode ? undefined : "dialog"}
-            onClick={() => {
-              setAuthMessage("");
-              if (isAdminMode) handleLogout();
-              else setIsLoginDialogOpen(true);
-            }}
-          >
-            {isAdminMode ? "LOGOUT" : "ADMIN LOGIN"}
-          </button>
-        </div>
-      </header>
-
-      {authMessage && (
+      {auth.authMessage && (
         <p className="auth-status" role="status" aria-live="polite">
-          {authMessage}
+          {auth.authMessage}
         </p>
       )}
 
-      {isLoginDialogOpen && (
+      {auth.isLoginDialogOpen && (
         <AdminLoginDialog
-          onAuthenticated={handleAuthenticated}
-          onCancel={() => {
-            setIsLoginDialogOpen(false);
-            requestAnimationFrame(() => authButtonRef.current?.focus());
-          }}
+          onAuthenticated={auth.handleAuthenticated}
+          onCancel={auth.handleLoginCancel}
         />
       )}
 
-      {introActive && location.pathname === "/" && (
-        <div className="cinematic-intro" data-testid="cinematic-intro">
-          <div className="cinematic-intro-visual" aria-hidden="true">
-            <img
-              ref={introLogoRef}
-              className={`cinematic-intro-logo intro-phase-${introPhase}`}
-              data-testid="intro-logo"
-              src="/images/intro-logo.png"
-              alt=""
-              aria-hidden="true"
-              width={1336}
-              height={750}
-              style={{
-                "--intro-flight-x": `${flightTransform.x}px`,
-                "--intro-flight-y": `${flightTransform.y}px`,
-                "--intro-flight-scale": flightTransform.scale,
-              } as CSSProperties}
-              onAnimationEnd={() => {
-                if (introPhase === "logo") setIntroPhase("name");
-                else if (introPhase === "flight") setIntroPhase("settle");
-                else if (introPhase === "settle") finishIntro(true);
-              }}
-            />
-            {(introPhase === "name" || introPhase === "name-out") && (
-              <img
-                className={`cinematic-intro-name intro-phase-${introPhase}`}
-                data-testid="intro-name"
-                src="/images/cinematheque-wordmark.png"
-                alt=""
-                aria-hidden="true"
-                width={1013}
-                height={152}
-                onAnimationEnd={() => {
-                  if (introPhase === "name") setIntroPhase("name-out");
-                  else if (introPhase === "name-out") startLogoFlight();
-                }}
-              />
-            )}
-          </div>
-          <button
-            className="cinematic-intro-skip"
-            type="button"
-            onClick={() => finishIntro(false)}
-          >
-            Skip intro
-          </button>
-        </div>
+      {intro.introActive && location.pathname === "/" && intro.introPhase && (
+        <CinematicIntro
+          flightTransform={intro.flightTransform}
+          introLogoRef={intro.introLogoRef}
+          introPhase={intro.introPhase}
+          onFinish={intro.finishIntro}
+          onLogoAnimationEnd={intro.handleLogoAnimationEnd}
+          onWordmarkAnimationEnd={intro.handleWordmarkAnimationEnd}
+        />
       )}
 
       <Routes>
@@ -294,358 +56,20 @@ function App() {
           path="/"
           element={(
             <CatalogPage
-              isAdminMode={isAdminMode}
-              heroRevealState={
-                introActive ? "waiting" : animateHero ? "animated" : "complete"
-              }
+              heroRevealState={intro.heroRevealState}
+              isAdminMode={auth.isAdminMode}
             />
           )}
         />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route
           path="/movies/:id"
-          element={<MovieRoute isAdminMode={isAdminMode} />}
+          element={<MovieDetailsRoute isAdminMode={auth.isAdminMode} />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );
-}
-
-function CatalogPage({
-  isAdminMode,
-  heroRevealState,
-}: {
-  isAdminMode: boolean;
-  heroRevealState: HeroRevealState;
-}) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const searchQuery = searchParams.get("search")?.trim() ?? "";
-  const selectedGenre = searchParams.get("genre")?.trim() ?? "";
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [genres, setGenres] = useState<string[]>([]);
-  const [searchDraft, setSearchDraft] = useState(searchQuery);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [creationMessage, setCreationMessage] = useState("");
-  const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [errorMessage, setErrorMessage] = useState("");
-  const pageHeadingRef = useRef<HTMLHeadingElement>(null);
-  const addFilmButtonRef = useRef<HTMLButtonElement>(null);
-
-  usePageMetadata("The Selective Archive | CinematheQue", pageHeadingRef);
-
-  useEffect(() => {
-    setSearchDraft(searchQuery);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const normalizedSearch = searchDraft.trim();
-    if (normalizedSearch === searchQuery) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setSearchParams((currentParams) => {
-        const nextParams = new URLSearchParams(currentParams);
-
-        if (normalizedSearch) nextParams.set("search", normalizedSearch);
-        else nextParams.delete("search");
-
-        return nextParams;
-      });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [searchDraft, searchQuery, setSearchParams]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoadState("loading");
-    setErrorMessage("");
-
-    getMovies({
-      signal: controller.signal,
-      genre: selectedGenre || undefined,
-      search: searchQuery || undefined,
-    })
-      .then((data) => {
-        setMovies(data);
-
-        if (!selectedGenre) {
-          setGenres(
-            [...new Set(data.flatMap((movie) => parseGenres(movie.genre)))].sort(
-              (first, second) => first.localeCompare(second),
-            ),
-          );
-        }
-
-        setLoadState("success");
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-
-        setErrorMessage(
-          error instanceof Error ? error.message : "An unexpected error occurred.",
-        );
-        setLoadState("error");
-      });
-
-    return () => controller.abort();
-  }, [searchQuery, selectedGenre]);
-
-  useEffect(() => {
-    if (!isAdminMode && isCreateDialogOpen) setIsCreateDialogOpen(false);
-  }, [isAdminMode, isCreateDialogOpen]);
-
-  function closeCreateDialog() {
-    setIsCreateDialogOpen(false);
-    requestAnimationFrame(() => addFilmButtonRef.current?.focus());
-  }
-
-  function handleMovieCreated(createdMovie: Movie) {
-    setMovies((current) => [
-      createdMovie,
-      ...current.filter((movie) => movie.id !== createdMovie.id),
-    ]);
-    setGenres((current) =>
-      [...new Set([...current, ...parseGenres(createdMovie.genre)])].sort(
-        (first, second) => first.localeCompare(second),
-      ),
-    );
-
-    if (
-      selectedGenre &&
-      !parseGenres(createdMovie.genre).some(
-        (genre) => genre.toLocaleLowerCase() === selectedGenre.toLocaleLowerCase(),
-      )
-    ) {
-      setSearchParams((currentParams) => {
-        const nextParams = new URLSearchParams(currentParams);
-        nextParams.delete("genre");
-        return nextParams;
-      });
-    }
-
-    setCreationMessage(`“${createdMovie.title}” was added to the archive.`);
-    closeCreateDialog();
-  }
-
-  return (
-    <>
-      <main>
-        <section className={`hero hero-reveal-${heroRevealState}`}>
-          <div className="hero-copy">
-            <h1 ref={pageHeadingRef} tabIndex={-1}>
-              <span className="hero-title-line hero-title-the">The</span>
-              <span className="hero-title-line hero-title-selective">selective</span>
-              <span className="hero-title-line hero-title-archive">archive</span>
-            </h1>
-            <p className="intro">Stories worth keeping.</p>
-          </div>
-        </section>
-
-        <section id="catalog" className="catalog" aria-labelledby="catalog-title">
-          <div className="catalog-layout">
-            <div className="section-heading">
-              <h2 id="catalog-title">All films</h2>
-
-              <div className="catalog-controls">
-                {isAdminMode ? (
-                  <button
-                    ref={addFilmButtonRef}
-                    className="add-film-button"
-                    type="button"
-                    aria-haspopup="dialog"
-                    onClick={() => {
-                      setCreationMessage("");
-                      setIsCreateDialogOpen(true);
-                    }}
-                  >
-                    + ADD FILM
-                  </button>
-                ) : null}
-
-                <label className="search-filter" htmlFor="movie-search">
-                  <span>Search films</span>
-                  <input
-                    id="movie-search"
-                    type="search"
-                    value={searchDraft}
-                    onChange={(event) => setSearchDraft(event.target.value)}
-                    placeholder="Search by title"
-                  />
-                </label>
-
-                <label className="genre-filter" htmlFor="genre-filter">
-                  <span>Filter by genre</span>
-                  <select
-                    id="genre-filter"
-                    value={selectedGenre}
-                    onChange={(event) => {
-                      const nextGenre = event.target.value;
-                      setSearchParams((currentParams) => {
-                        const nextParams = new URLSearchParams(currentParams);
-
-                        if (nextGenre) nextParams.set("genre", nextGenre);
-                        else nextParams.delete("genre");
-
-                        return nextParams;
-                      });
-                    }}
-                  >
-                    <option value="">All genres</option>
-                    {selectedGenre &&
-                      !genres.some(
-                        (genre) =>
-                          genre.toLocaleLowerCase() ===
-                          selectedGenre.toLocaleLowerCase(),
-                      ) && <option value={selectedGenre}>{selectedGenre}</option>}
-                    {genres.map((genre) => (
-                      <option key={genre} value={genre}>{genre}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="catalog-results">
-              {loadState === "loading" && (
-                <div className="movie-grid" aria-label="Loading movies">
-                  {Array.from({ length: 6 }, (_, index) => (
-                    <div className="movie-card skeleton" key={index} />
-                  ))}
-                </div>
-              )}
-
-              {loadState === "error" && (
-                <div className="message error" role="alert">
-                  <strong>The archive could not be opened.</strong>
-                  <span>{errorMessage}</span>
-                </div>
-              )}
-
-              {loadState === "success" && movies.length === 0 && (
-                <div className="message">
-                  <strong>
-                    {searchQuery || selectedGenre
-                      ? "No films found."
-                      : "The archive is empty."}
-                  </strong>
-                  <span>
-                    {searchQuery || selectedGenre
-                      ? "Try changing your search or genre."
-                      : "Add the first movie to begin the collection."}
-                  </span>
-                </div>
-              )}
-
-              {loadState === "success" && movies.length > 0 && (
-                <div className="movie-grid">
-                  {movies.map((movie) => {
-                    const posterUrl = getMoviePoster(movie.title);
-                    const primaryGenre = getPrimaryGenre(movie.genre);
-                    const genreDescription = `Genres: ${parseGenres(movie.genre).join(", ")}`;
-
-                    return (
-                      <article className="movie-card" key={movie.id}>
-                        <Link
-                          className="movie-card-trigger"
-                          to={`/movies/${movie.id}`}
-                          aria-label={`View details for ${movie.title}`}
-                        >
-                          <div className={`poster poster-${movie.id % 4}`}>
-                            {posterUrl ? (
-                              <img
-                                className="poster-image"
-                                src={posterUrl}
-                                alt=""
-                                width={800}
-                                height={1200}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <span className="poster-letter">{movie.title.charAt(0)}</span>
-                            )}
-                          </div>
-
-                          <div className="movie-content">
-                            <p className="movie-card-genre">
-                              <span aria-hidden="true">{primaryGenre}</span>
-                              <span className="visually-hidden">{genreDescription}</span>
-                            </p>
-                            <h3>{movie.title}</h3>
-                            <div className="movie-card-meta">
-                              <span>{movie.year}</span>
-                              <span>{movie.duration} min</span>
-                            </div>
-                          </div>
-                        </Link>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <p className="creation-status" role="status" aria-live="polite" aria-atomic="true">
-        {creationMessage}
-      </p>
-
-      {isCreateDialogOpen && (
-        <MovieCreateDialog onCancel={closeCreateDialog} onCreated={handleMovieCreated} />
-      )}
-    </>
-  );
-}
-
-function MovieRoute({ isAdminMode }: { isAdminMode: boolean }) {
-  const { id } = useParams();
-  const movieId = id && /^\d+$/.test(id) ? Number(id) : Number.NaN;
-  const isValidId = Number.isSafeInteger(movieId) && movieId > 0;
-
-  if (!isValidId) {
-    return (
-      <RouteMessagePage
-        title="Invalid movie"
-        message="The movie address must contain a valid positive number."
-      />
-    );
-  }
-
-  return <MovieDetailsPage movieId={movieId} isAdminMode={isAdminMode} />;
-}
-
-function NotFoundPage() {
-  return (
-    <RouteMessagePage
-      title="Page not found"
-      message="The page you requested is not part of the archive."
-    />
-  );
-}
-
-function RouteMessagePage({ title, message }: { title: string; message: string }) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  usePageMetadata(`${title} | CinematheQue`, headingRef);
-
-  return (
-    <main className="route-message-page">
-      <h1 ref={headingRef} tabIndex={-1}>{title}</h1>
-      <p>{message}</p>
-      <Link to="/">Back to the catalog</Link>
-    </main>
-  );
-}
-
-function usePageMetadata(title: string, headingRef: RefObject<HTMLHeadingElement | null>) {
-  useEffect(() => {
-    document.title = title;
-  }, [title]);
-
-  useEffect(() => {
-    headingRef.current?.focus({ preventScroll: true });
-  }, [headingRef]);
 }
 
 export default App;
