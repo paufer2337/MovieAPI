@@ -1,0 +1,187 @@
+.hidden-easter-egg {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.42;
+  padding: 3px;
+  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
+}
+
+.hidden-easter-egg img {
+  display: block;
+  width: clamp(24px, 2.5vw, 38px);
+  max-height: 38px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hidden-easter-egg:hover,
+.hidden-easter-egg:focus-visible {
+  filter: drop-shadow(0 0 0.45rem rgb(216 185 139 / 45%));
+  opacity: 0.9;
+  transform: scale(1.08);
+}
+
+.hidden-easter-egg:focus-visible {
+  outline: 2px solid var(--champagne);
+  outline-offset: 2px;
+}
+
+.hidden-easter-egg--top-left {
+  top: 0.2rem;
+  left: 0.2rem;
+}
+
+.hidden-easter-egg--top-right {
+  top: 0.2rem;
+  right: 0.2rem;
+}
+
+.hidden-easter-egg--middle-left {
+  top: 40%;
+  left: 0.2rem;
+}
+
+.hidden-easter-egg--middle-right {
+  top: 44%;
+  right: 0.2rem;
+}
+
+.hidden-easter-egg--lower-left {
+  bottom: 0.2rem;
+  left: 0.2rem;
+}
+
+.hidden-easter-egg--lower-right {
+  right: 0.2rem;
+  bottom: 0.2rem;
+}
+
+.hidden-easter-egg--poster-corner {
+  bottom: 1.1rem;
+  left: clamp(12rem, 31%, 23rem);
+}
+
+.hidden-easter-egg--metadata-corner {
+  top: 6.4rem;
+  right: 0.75rem;
+}
+
+.easter-egg-dialog {
+  width: auto;
+  max-width: calc(100vw - 1.5rem);
+  max-height: calc(100dvh - 1.5rem);
+  overflow: visible;
+  border: 1px solid rgb(216 185 139 / 62%);
+  border-radius: 0;
+  background: var(--archive-black);
+  box-shadow: 0 1.5rem 5rem rgb(0 0 0 / 72%);
+  color: var(--warm-paper);
+  padding: 0;
+}
+
+.easter-egg-dialog::backdrop {
+  background: rgb(3 3 5 / 76%);
+  backdrop-filter: blur(3px);
+}
+
+.easter-egg-dialog-content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  background: var(--archive-black);
+}
+
+.easter-egg-dialog-close {
+  position: absolute;
+  z-index: 2;
+  top: 0.45rem;
+  right: 0.45rem;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 58%);
+  background: rgb(3 3 5 / 82%);
+  color: #fff;
+  cursor: pointer;
+  font: 2rem/1 var(--serif);
+}
+
+.easter-egg-dialog-close:hover,
+.easter-egg-dialog-close:focus-visible {
+  border-color: var(--champagne);
+  color: var(--champagne);
+}
+
+.easter-egg-dialog-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.easter-egg-video {
+  min-width: 200px;
+  min-height: 200px;
+  background: #000;
+}
+
+.easter-egg-video--portrait {
+  width: min(315px, calc(100vw - 2rem));
+  aspect-ratio: 9 / 16;
+}
+
+.easter-egg-video--landscape {
+  width: min(720px, calc(100vw - 2rem));
+  aspect-ratio: 16 / 9;
+}
+
+.easter-egg-video iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.easter-egg-youtube-link {
+  width: 100%;
+  border-top: 1px solid rgb(216 185 139 / 28%);
+  color: var(--champagne);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .hidden-easter-egg--poster-corner {
+    top: min(68vw, 24rem);
+    bottom: auto;
+    left: 0.2rem;
+  }
+
+  .hidden-easter-egg--metadata-corner {
+    top: min(92vw, 31rem);
+    right: 0.2rem;
+  }
+}
+
+@media (max-height: 680px) {
+  .easter-egg-video--portrait {
+    width: min(315px, calc((100dvh - 5rem) * 9 / 16));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hidden-easter-egg {
+    transition: none;
+  }
+}

@@ -24,6 +24,7 @@ import type {
   ReviewInput,
 } from "../types/movie";
 import { formatGenres } from "../utils/genres";
+import { MovieEasterEgg } from "./easterEggs/HiddenEasterEgg";
 import "./MovieModal.css";
 
 type ModalTab = "details" | "cast" | "reviews";
@@ -842,6 +843,9 @@ export function MovieDetailsPage({
               )}
             </div>
           </div>
+        )}
+        {movie && (!showDeleteConfirmation || !isAdminMode) && (
+          <MovieEasterEgg movieTitle={movie.title} />
         )}
       </article>
     </main>
